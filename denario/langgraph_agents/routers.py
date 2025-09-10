@@ -10,6 +10,8 @@ def task_router (state: GraphState) -> str:
         return 'methods'
     elif state['task']=='literature':
         return 'novelty'
+    elif state['task']=='referee':
+        return 'referee'
     else:
         raise Exception('Wrong task choosen!')
     

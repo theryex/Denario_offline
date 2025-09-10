@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 
 from .parameters import GraphState
-from ..config import INPUT_FILES, IDEA_FILE, METHOD_FILE, LITERATURE_FILE
+from ..config import INPUT_FILES, IDEA_FILE, METHOD_FILE, LITERATURE_FILE, REFEREE_FILE, PAPER_FOLDER
 
 def preprocess_node(state: GraphState, config: RunnableConfig):
     """
@@ -67,6 +67,9 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
     elif state['task']=='literature':
         state['files']['module_folder'] = 'literature_output'
         state['files']['f_stream'] = f"{state['files']['Folder']}/{state['files']['module_folder']}/literature.log"
+    elif state['task']=='referee':
+        state['files']['module_folder'] = 'referee_output'
+        state['files']['f_stream'] = f"{state['files']['Folder']}/{state['files']['module_folder']}/referee.log"
         
     state['files'] = {**state['files'],
                       "Temp":      f"{state['files']['Folder']}/{state['files']['module_folder']}",
@@ -74,7 +77,6 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
                       "Error":     f"{state['files']['Folder']}/{state['files']['module_folder']}/Error.txt",
     }
     #########################################
-
     # set particulars for different tasks
     if state['task']=='idea_generation':
         idea = {**state['idea'], 'iteration':0, 'previous_ideas': "",
@@ -97,7 +99,14 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
                           "papers": f"{state['files']['Folder']}/{state['files']['module_folder']}/papers_processed.log",
         }
         idea = {**state['idea'], 'idea': idea}
-        
+
+    elif state['task']=='referee':
+        state['referee'] = {**state['referee'], 'paper_version':2, 'report':''}
+        state['files'] = {**state['files'],
+                          "Paper_folder": f"{state['files']['Folder']}/{PAPER_FOLDER}",
+                          "referee_report": f"{state['files']['Folder']}/{INPUT_FILES}/{REFEREE_FILE}",
+                          "referee_log":  f"{state['files']['Folder']}/{state['files']['module_folder']}/referee.log",
+        }
 
     # create project folder, input files, and temp files
     os.makedirs(state['files']['Folder'],                    exist_ok=True)
@@ -131,6 +140,20 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
             file_path = state['files'][f]
             if os.path.exists(file_path):
                 os.remove(file_path)
+
+    # remove referee.md if it exists
+    if state['task']=='referee':
+        for f in ['referee_report', 'referee_log']:
+            file_path = state['files'][f]
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+        return {**state,
+                "files":            state['files'],
+                "llm":              state['llm'],
+                "tokens":           state['tokens'],
+                "data_description": description,
+                "referee":          state['referee']}
     #########################################
             
 

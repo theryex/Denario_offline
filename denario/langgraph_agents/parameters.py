@@ -18,6 +18,8 @@ class FILES(TypedDict):
     literature: str       #name of the file to write literature results
     literature_log: str   #name of the file to write literature search logs
     papers: str           #name of the file with the papers found and processed
+    referee_report: str   #name of the file with the referee report
+    referee_log: str      #name of the file to write the referee logs
     Error: str            #name of the error file
     module_folder: str    #name of the folder containing the results from the considered module
     f_stream: str         #name of the file to stream the results
@@ -45,6 +47,11 @@ class IDEA(TypedDict):
     criticism: str
     total_iterations: int
 
+# Reviewer class
+class REFEREE(TypedDict):
+    paper_version: int
+    report: str
+
 # Literature class
 class LITERATURE(TypedDict):
     iteration: int
@@ -67,3 +74,4 @@ class GraphState(TypedDict):
     data_description: str
     task: str
     literature: LITERATURE
+    referee: REFEREE

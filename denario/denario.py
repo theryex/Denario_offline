@@ -623,6 +623,59 @@ class Denario:
         seconds = int(elapsed_time % 60)
         print(f"Paper written in {minutes} min {seconds} sec.")    
 
+
+    def referee_fast(self,
+                     llm: LLM | str = models["gemini-2.5-flash"],
+                     verbose=False) -> None:
+        """
+        Review a paper
+
+        Args:
+           - llm: the LLM model to be used
+           - verbose: whether to stream the LLM response 
+        """
+
+        # Start timer
+        start_time = time.time()
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
+
+        # Get LLM instance
+        llm = llm_parser(llm)
+
+        # Build graph
+        graph = build_lg_graph(mermaid_diagram=False)
+
+        # get name of data description file and referee
+        f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
+
+        # Initialize the state
+        input_state = {
+            "task": "referee",
+            "files":{"Folder": self.project_dir,  #name of project folder
+                     "data_description": f_data_description}, 
+            "llm": {"model": llm.name,                #name of the LLM model to use
+                    "temperature": llm.temperature,
+                    "max_output_tokens": llm.max_output_tokens,
+                    "stream_verbose": verbose},
+            "keys": self.keys,
+            "referee": {"paper_version": 2},
+        }
+        
+        # Run the graph
+        try:
+            graph.invoke(input_state, config)
+            
+            # End timer and report duration in minutes and seconds
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            minutes = int(elapsed_time // 60)
+            seconds = int(elapsed_time % 60)
+            print(f"Paper reviewed in {minutes} min {seconds} sec.")
+            
+        except Exception as e:
+            print('Denario failed to provide a review the paper')
+            print(f'Error: {e}')
+        
     def research_pilot(self, data_description: str = None) -> None:
         """Full run of Denario. It calls the following methods sequentially:
         ```
