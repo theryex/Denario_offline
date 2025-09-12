@@ -1,4 +1,4 @@
-[project]
+n[project]
 name = "denario"
 version = "0.1.14"
 description = "Modular Automation of Scientific Research with Multi-Agent Systems"
@@ -9,7 +9,7 @@ authors = [
  
 ]
 maintainers = [
-  { name = "Pablo-Paco-Boris", email = "denario.astropilot.ai@gmail.com" },
+  { name = "Denario", email = "denario.astropilot.ai@gmail.com" },
 ]
 readme = "README.md"
 requires-python = ">=3.12"
