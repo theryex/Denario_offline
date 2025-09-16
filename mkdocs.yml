@@ -7,13 +7,10 @@ nav:
   - Installation: install.md
   - LLM APIs:
       - Overview: apikeys.md
-      - How Much Money Is Needed?: how-much-money.md
-      - Risk of Overspending: risk-overspending.md
-      - Rate Limits: rate-limits.md
+      - Cost: cost.md
       - Obtaining API Keys: obtaining-api-keys.md
       - Vertex AI Setup: vertex-ai-setup.md
-      - FutureHouse: futurehouse.md
-      - Where to Store API Keys: where-to-store-api-keys.md
+      - Storing API Keys: storing-api-keys.md
   - Get started: get_started.md
   - App: app.md
   - Prompts: prompts.md

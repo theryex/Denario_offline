@@ -13,14 +13,4 @@ The table below summarizes which LLM models are required (✅), optional (🟠) 
 | **Analysis**       | ✅     | 🟠     | 🟠        | 🟠     | ❌         | ❌          |
 | **Paper Writing**  | 🟠     | 🟠     | ❌        | 🟠     | ❌         | ❌          |
 | Citation Search    | ❌     | ❌     | ❌        | ❌     | ✅         | ❌          |
-| Check Idea         | 🟠     | 🟠     | 🟠        | 🟠     | 🟠         | ✅          |
-
-## Quick Navigation
-
-- **[How Much Money Is Needed?](how-much-money.md)** - Cost estimates and budgeting information
-- **[Risk of Overspending](risk-overspending.md)** - Important precautions and monitoring tips
-- **[Rate Limits](rate-limits.md)** - Understanding and managing API rate limits
-- **[Obtaining API Keys](obtaining-api-keys.md)** - Step-by-step guides for each provider
-- **[Vertex AI Setup](vertex-ai-setup.md)** - Detailed setup for Google Cloud Vertex AI
-- **[FutureHouse](futurehouse.md)** - Setup for FutureHouse Owl agent
-- **[Where to Store API Keys](where-to-store-api-keys.md)** - Environment variable configuration
+| Check Idea         | 🟠     | 🟠     | 🟠        | 🟠     | 🟠         | 🟠          |

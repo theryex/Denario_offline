@@ -56,5 +56,3 @@ This environment variable must be set whenever Denario requires Vertex AI access
 - In the navigation menu, select "Billing".
 - Click "Link a billing account" and follow the prompts to create a billing account.
 - Choose your country, enter contact information, and add a payment method.
-
-[← Back to API Keys](apikeys.md)
