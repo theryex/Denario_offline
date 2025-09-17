@@ -21,6 +21,8 @@ Denario is a multiagent system designed to automatize scientific research. Denar
 
 - [📝 End-to-end research papers generated with Denario](https://github.com/AstroPilot-AI/DenarioExamplePapers)
 
+- [🎥 YouTube channel](https://www.youtube.com/@denario-ai)
+
 ## Installation
 
 To install denario create a virtual environment and pip install it. We recommend using Python 3.12:
