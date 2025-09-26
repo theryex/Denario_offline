@@ -1,6 +1,6 @@
 [project]
 name = "denario"
-version = "0.1.18"
+version = "0.1.19"
 description = "Modular Automation of Scientific Research with Multi-Agent Systems"
 authors = [
   { name = "Pablo Villanueva-Domingo" },
@@ -29,7 +29,7 @@ dependencies = [
   "google-ai-generativelanguage>=0.6.17",
   "flatbuffers>=24.12.23",
   "filelock>=3.17.0",
-  "cmbagent>=0.0.1post62",
+  "cmbagent>=0.0.1post63",
   "pymupdf",
   "pillow",
   "jsonschema",

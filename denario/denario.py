@@ -600,29 +600,39 @@ class Denario:
         # display(Markdown(self.research.results))
         print(self.research.results)
     
-    def get_keywords(self, input_text: str, n_keywords: int = 5) -> None:
+    def get_keywords(self, input_text: str, n_keywords: int = 5, kw_type: str = 'unesco') -> None:
         """
-        Get AAS keywords from input text using cmbagent.
+        Get keywords from input text using cmbagent.
 
         Args:
             input_text (str): Text to extract keywords from
             n_keywords (int, optional): Number of keywords to extract. Defaults to 5.
+            kw_type (str, optional): Type of keywords to extract. Defaults to 'unesco'.
 
         Returns:
-            dict: Dictionary mapping AAS keywords to their URLs
+            dict: Dictionary mapping keywords to their URLs
         """
         
-        aas_keywords = cmbagent.get_keywords(input_text, n_keywords = n_keywords, api_keys = self.keys)
-        self.research.keywords = aas_keywords
+        keywords = cmbagent.get_keywords(input_text, n_keywords = n_keywords, kw_type = kw_type, api_keys = self.keys)
+        self.research.keywords = keywords
+        print('keywords: ', self.research.keywords)
     
     def show_keywords(self) -> None:
-        """Show the AAS keywords."""
+        """Show the keywords."""
 
-        AAS_keyword_list = "\n".join(
-                            [f"- [{keyword}]({self.research.keywords[keyword]})" for keyword in self.research.keywords]
-                        )
-        # display(Markdown(AAS_keyword_list))
-        print(AAS_keyword_list)
+        print(self.research.keywords)
+
+        if isinstance(self.research.keywords, dict):
+            # Handle dict format (AAS keywords with URLs)
+            keyword_list = "\n".join(
+                                [f"- [{keyword}]({self.research.keywords[keyword]})" for keyword in self.research.keywords]
+                            )
+        else:
+            # Handle list format (UNESCO keywords)
+            keyword_list = "\n".join([f"- {keyword}" for keyword in self.research.keywords])
+        
+        # display(Markdown(keyword_list))
+        print(keyword_list)
 
     def get_paper(self,
                   journal: Journal = Journal.NONE,
