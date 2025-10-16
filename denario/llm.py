@@ -40,6 +40,11 @@ gpt41 = LLM(name="gpt-4.1-2025-04-14",
             temperature=0.5)
 """`gpt-4.1` model."""
 
+gpt41mini = LLM(name="gpt-4.1-mini",
+                max_output_tokens=16384,
+                temperature=0.5)
+"""`gpt-4.1-mini` model."""
+
 gpt4omini = LLM(name="gpt-4o-mini-2024-07-18",
                 max_output_tokens=16384,
                 temperature=0.5)
@@ -54,6 +59,11 @@ gpt5 = LLM(name="gpt-5",
            max_output_tokens=128000,
            temperature=None)
 """`gpt-5` model """
+
+gpt5mini = LLM(name="gpt-5-mini",
+               max_output_tokens=128000,
+               temperature=None)
+"""`gpt-5-mini` model."""
 
 claude37sonnet = LLM(name="claude-3-7-sonnet-20250219",
                      max_output_tokens=64000,
@@ -77,9 +87,11 @@ models : Dict[str, LLM] = {
                             "o3-mini" : o3mini,
                             "gpt-4o" : gpt4o,
                             "gpt-4.1" : gpt41,
+                            "gpt-4.1-mini" : gpt41mini,
                             "gpt-4o-mini" : gpt4omini,
                             "gpt-4.5" : gpt45,
                             "gpt-5" : gpt5,
+                            "gpt-5-mini" : gpt5mini,
                             "claude-3.7-sonnet" : claude37sonnet,
                             "claude-4-opus" : claude4opus,
                             "claude-4.1-opus" : claude41opus,
