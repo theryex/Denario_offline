@@ -132,8 +132,8 @@ class Denario:
             f.write(data_description)
         
     def enhance_data_description(self,
-                                 summarizer_model: str = None, 
-                                 summarizer_response_formatter_model: str = None) -> None:
+                                 summarizer_model: str | None = None, 
+                                 summarizer_response_formatter_model: str | None = None) -> None:
         """
         Enhance the data description using the preprocess_task from cmbagent.
 
@@ -206,8 +206,8 @@ class Denario:
                  idea_hater_model: LLM | str = models["o3-mini"],
                  planner_model: LLM | str = models["gpt-4o"],
                  plan_reviewer_model: LLM | str = models["o3-mini"],
-                 default_orchestration_model: LLM | str = models["gpt-4.1"],
-                 default_formatter_model: LLM | str = models["o3-mini"],
+                 orchestration_model: LLM | str = models["gpt-4.1"],
+                 formatter_model: LLM | str = models["o3-mini"],
                 ) -> None:
         """Generate an idea making use of the data and tools described in `data_description.md`.
 
@@ -218,8 +218,8 @@ class Denario:
             idea_hater_model: the LLM to be used for the idea hater agent.
             planner_model: the LLM to be used for the planner agent.
             plan_reviewer_model: the LLM to be used for the plan reviewer agent.
-            default_orchestration_model: the LLM to be used for the orchestration of the agents.
-            default_formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM to be used for the orchestration of the agents.
+            formatter_model: the LLM to be used for formatting the responses of the agents.
         """
 
         print(f"Generating idea with {mode} mode")
@@ -231,8 +231,8 @@ class Denario:
                                   idea_hater_model=idea_hater_model,
                                   planner_model=planner_model,
                                   plan_reviewer_model=plan_reviewer_model,
-                                  default_orchestration_model=default_orchestration_model,
-                                  default_formatter_model=default_formatter_model)
+                                  orchestration_model=orchestration_model,
+                                  formatter_model=formatter_model)
         else:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
 
@@ -241,8 +241,8 @@ class Denario:
                     idea_hater_model: LLM | str = models["o3-mini"],
                     planner_model: LLM | str = models["gpt-4o"],
                     plan_reviewer_model: LLM | str = models["o3-mini"],
-                    default_orchestration_model: LLM | str = models["gpt-4.1"],
-                    default_formatter_model: LLM | str = models["o3-mini"],
+                    orchestration_model: LLM | str = models["gpt-4.1"],
+                    formatter_model: LLM | str = models["o3-mini"],
                 ) -> None:
         """Generate an idea making use of the data and tools described in `data_description.md` with the cmbagent backend.
         
@@ -251,8 +251,8 @@ class Denario:
             idea_hater_model: the LLM to be used for the idea hater agent.
             planner_model: the LLM to be used for the planner agent.
             plan_reviewer_model: the LLM to be used for the plan reviewer agent.
-            default_orchestration_model: the LLM to be used for the orchestration of the agents.
-            default_formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM to be used for the orchestration of the agents.
+            formatter_model: the LLM to be used for formatting the responses of the agents.
         """
 
         # Get LLM instances
@@ -260,6 +260,8 @@ class Denario:
         idea_hater_model = llm_parser(idea_hater_model)
         planner_model = llm_parser(planner_model)
         plan_reviewer_model = llm_parser(plan_reviewer_model)
+        orchestration_model = llm_parser(orchestration_model)
+        formatter_model = llm_parser(formatter_model)
         
         if self.research.data_description == "":
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -271,8 +273,8 @@ class Denario:
                     planner_model = planner_model.name,
                     plan_reviewer_model = plan_reviewer_model.name,
                     keys=self.keys,
-                    default_orchestration_model = default_orchestration_model.name,
-                    default_formatter_model = default_formatter_model.name)
+                    orchestration_model = orchestration_model.name,
+                    formatter_model = formatter_model.name)
         
         idea = idea.develop_idea(self.research.data_description)
         self.research.idea = idea
@@ -372,7 +374,7 @@ class Denario:
         print(f"Checking idea in literature with {mode} mode")
 
         if mode == 'futurehouse':
-            return self.check_idea_futurhouse()
+            return self.check_idea_futurehouse()
 
         elif mode == 'semantic_scholar':
 
@@ -381,13 +383,9 @@ class Denario:
         else:
             raise ValueError("Mode must be either 'futurehouse' or 'semantic_scholar'")
     
-    def check_idea_futurhouse(self) -> str:
+    def check_idea_futurehouse(self) -> str:
         """
         Check with the literature if an idea is original or not.
-
-        Args:
-           llm: the LLM model to be used
-           verbose: whether to stream the LLM response 
         """
 
         from futurehouse_client import FutureHouseClient, JobNames
@@ -441,6 +439,7 @@ class Denario:
 
         Args:
            llm: the LLM model to be used
+           max_iterations: maximum number of iterations to check the idea
            verbose: whether to stream the LLM response 
         """
 
@@ -503,8 +502,8 @@ class Denario:
                    method_generator_model: LLM | str = models["gpt-4o"],
                    planner_model: LLM | str = models["gpt-4o"],
                    plan_reviewer_model: LLM | str = models["o3-mini"],
-                   default_orchestration_model: LLM | str = models["gpt-4.1"],
-                   default_formatter_model: LLM | str = models["o3-mini"],
+                   orchestration_model: LLM | str = models["gpt-4.1"],
+                   formatter_model: LLM | str = models["o3-mini"],
                    verbose = False,
                    ) -> None:
         """
@@ -516,8 +515,8 @@ class Denario:
             method_generator_model: (researcher) the LLM model to be used for the researcher agent. Default is gpt-4o
             planner_model: the LLM model to be used for the planner agent. Default is gpt-4o
             plan_reviewer_model: the LLM model to be used for the plan reviewer agent. Default is o3-mini
-            default_orchestration_model: the LLM to be used for the orchestration of the agents.
-            default_formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM to be used for the orchestration of the agents.
+            formatter_model: the LLM to be used for formatting the responses of the agents.
         """
 
         print(f"Generating methodology with {mode} mode")
@@ -528,8 +527,8 @@ class Denario:
             self.get_method_cmbagent(method_generator_model=method_generator_model,
                                      planner_model=planner_model,
                                      plan_reviewer_model=plan_reviewer_model,
-                                     default_orchestration_model=default_orchestration_model,
-                                     default_formatter_model=default_formatter_model)
+                                     orchestration_model=orchestration_model,
+                                     formatter_model=formatter_model)
         else:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
 
@@ -537,8 +536,8 @@ class Denario:
                             method_generator_model: LLM | str = models["gpt-4o"],
                             planner_model: LLM | str = models["gpt-4o"],
                             plan_reviewer_model: LLM | str = models["o3-mini"],
-                            default_orchestration_model: LLM | str = models["gpt-4.1"],
-                            default_formatter_model: LLM | str = models["o3-mini"],
+                            orchestration_model: LLM | str = models["gpt-4.1"],
+                            formatter_model: LLM | str = models["o3-mini"],
                             ) -> None:
         """
         Generate the methods to be employed making use of the data and tools described in `data_description.md` and the idea in `idea.md`.
@@ -547,8 +546,8 @@ class Denario:
             method_generator_model: (researcher) the LLM model to be used for the researcher agent. Default is gpt-4o
             planner_model: the LLM model to be used for the planner agent. Default is gpt-4o
             plan_reviewer_model: the LLM model to be used for the plan reviewer agent. Default is o3-mini
-            default_orchestration_model: the LLM to be used for the orchestration of the agents.
-            default_formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM to be used for the orchestration of the agents.
+            formatter_model: the LLM to be used for formatting the responses of the agents.
         """
 
         if self.research.data_description == "":
@@ -562,14 +561,16 @@ class Denario:
         method_generator_model = llm_parser(method_generator_model)
         planner_model = llm_parser(planner_model)
         plan_reviewer_model = llm_parser(plan_reviewer_model)
+        orchestration_model = llm_parser(orchestration_model)
+        formatter_model = llm_parser(formatter_model)
 
         method = Method(self.research.idea, keys=self.keys,  
                         work_dir = self.project_dir, 
                         researcher_model=method_generator_model.name, 
                         planner_model=planner_model.name, 
                         plan_reviewer_model=plan_reviewer_model.name,
-                        default_orchestration_model = default_orchestration_model.name,
-                        default_formatter_model = default_formatter_model.name)
+                        orchestration_model = orchestration_model.name,
+                        formatter_model = formatter_model.name)
         
         methododology = method.develop_method(self.research.data_description)
         self.research.methodology = methododology
@@ -629,8 +630,12 @@ class Denario:
         seconds = int(elapsed_time % 60)
         print(f"Methods generated in {minutes} min {seconds} sec.")  
         
-    def set_method(self, method: str = None) -> None:
+    def set_method(self, method: str | None = None) -> None:
         """Manually set methods, either directly from a string or providing the path of a markdown file with the methods."""
+
+        if method is None:
+            with open(os.path.join(self.project_dir, INPUT_FILES, METHOD_FILE), 'r') as f:
+                method = f.read()
 
         method = input_check(method)
         
@@ -655,8 +660,8 @@ class Denario:
                     plan_reviewer_model: LLM | str = models["gpt-4o-mini"],
                     max_n_attempts: int = 10,
                     max_n_steps: int = 6,   
-                    default_orchestration_model: LLM | str = models["gpt-4.1-mini"],
-                    default_formatter_model: LLM | str = models["gpt-5-mini"],
+                    orchestration_model: LLM | str = models["gpt-4.1-mini"],
+                    formatter_model: LLM | str = models["gpt-5-mini"],
                     ) -> None:
         """
         Compute the results making use of the methods, idea and data description.
@@ -669,8 +674,8 @@ class Denario:
             hardware_constraints: the hardware constraints to be used for the experiment. Default is None
             planner_model: the LLM model to be used for the planner agent. Default is gpt-4.1-mini
             plan_reviewer_model: the LLM model to be used for the plan reviewer agent. Default is gpt-4o-mini
-            default_orchestration_model: the LLM model to be used for the orchestration of the agents. Default is gpt-4.1-mini
-            default_formatter_model: the LLM model to be used for the formatting of the responses of the agents. Default is gpt-5-mini
+            orchestration_model: the LLM model to be used for the orchestration of the agents. Default is gpt-4.1-mini
+            formatter_model: the LLM model to be used for the formatting of the responses of the agents. Default is gpt-5-mini
             max_n_attempts: the maximum number of attempts to execute code within one step if the code execution fails. Default is 10
             max_n_steps: the maximum number of steps in the workflow. Default is 6
         """
@@ -680,8 +685,8 @@ class Denario:
         researcher_model = llm_parser(researcher_model)
         planner_model = llm_parser(planner_model)
         plan_reviewer_model = llm_parser(plan_reviewer_model)
-        default_orchestration_model = llm_parser(default_orchestration_model)
-        default_formatter_model = llm_parser(default_formatter_model)
+        orchestration_model = llm_parser(orchestration_model)
+        formatter_model = llm_parser(formatter_model)
 
         if self.research.data_description == "":
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -708,8 +713,8 @@ class Denario:
                                 hardware_constraints = hardware_constraints,
                                 max_n_attempts=max_n_attempts,
                                 max_n_steps=max_n_steps,
-                                default_orchestration_model = default_orchestration_model.name,
-                                default_formatter_model = default_formatter_model.name)
+                                orchestration_model = orchestration_model.name,
+                                formatter_model = formatter_model.name)
         
         experiment.run_experiment(self.research.data_description)
         self.research.results = experiment.results

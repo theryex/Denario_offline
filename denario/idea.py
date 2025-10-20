@@ -34,8 +34,8 @@ class Idea:
                  planner_model = "gpt-4o",
                  plan_reviewer_model = "o3-mini",
                  work_dir = None, 
-                 default_orchestration_model = "gpt-4.1",
-                 default_formatter_model = "o3-mini",
+                 orchestration_model = "gpt-4.1",
+                 formatter_model = "o3-mini",
                 ):
         
         if work_dir is None:
@@ -47,8 +47,8 @@ class Idea:
         self.idea_hater_model = idea_hater_model
         self.planner_model = planner_model
         self.plan_reviewer_model = plan_reviewer_model
-        self.default_orchestration_model = default_orchestration_model
-        self.default_formatter_model = default_formatter_model
+        self.orchestration_model = orchestration_model
+        self.formatter_model = formatter_model
         self.api_keys = keys
 
         # Create directory if it doesn't exist
@@ -75,8 +75,8 @@ class Idea:
                               plan_reviewer_model=self.plan_reviewer_model,
                               work_dir = self.idea_dir,
                               api_keys = self.api_keys,
-                              default_llm_model = self.default_orchestration_model,
-                              default_formatter_model = self.default_formatter_model
+                              default_llm_model = self.orchestration_model,
+                              default_formatter_model = self.formatter_model
                              )
 
         chat_history = results['chat_history']

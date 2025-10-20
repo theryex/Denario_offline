@@ -20,15 +20,15 @@ class Method:
                  planner_model = "gpt-4.1-2025-04-14",
                  plan_reviewer_model = "o3-mini",
                  work_dir = None,
-                 default_orchestration_model = "gpt-4.1",
-                 default_formatter_model = "o3-mini",
+                 orchestration_model = "gpt-4.1",
+                 formatter_model = "o3-mini",
                 ):
         
         self.researcher_model = researcher_model
         self.planner_model = planner_model
         self.plan_reviewer_model = plan_reviewer_model
-        self.default_orchestration_model = default_orchestration_model
-        self.default_formatter_model = default_formatter_model
+        self.orchestration_model = orchestration_model
+        self.formatter_model = formatter_model
         self.api_keys = keys
 
         if work_dir is None:
@@ -61,8 +61,8 @@ class Method:
                               researcher_instructions = self.researcher_append_instructions,
                               work_dir = self.method_dir,
                               api_keys = self.api_keys,
-                              default_llm_model = self.default_orchestration_model,
-                              default_formatter_model = self.default_formatter_model
+                              default_llm_model = self.orchestration_model,
+                              default_formatter_model = self.formatter_model
                              )
         
         chat_history = results['chat_history']

@@ -26,8 +26,8 @@ class Experiment:
                  hardware_constraints: str = None,
                  max_n_attempts: int = 10,
                  max_n_steps: int = 6,
-                 default_orchestration_model = "gpt-4.1",
-                 default_formatter_model = "o3-mini",
+                 orchestration_model = "gpt-4.1",
+                 formatter_model = "o3-mini",
                 ):
         
         self.engineer_model = engineer_model
@@ -38,8 +38,8 @@ class Experiment:
         self.hardware_constraints = hardware_constraints
         self.max_n_attempts = max_n_attempts
         self.max_n_steps = max_n_steps
-        self.default_orchestration_model = default_orchestration_model
-        self.default_formatter_model = default_formatter_model
+        self.orchestration_model = orchestration_model
+        self.formatter_model = formatter_model
 
         
         if work_dir is None:
@@ -99,8 +99,8 @@ class Experiment:
                             api_keys = self.api_keys,
                             restart_at_step = self.restart_at_step,
                             hardware_constraints = self.hardware_constraints,
-                            default_llm_model = self.default_orchestration_model,
-                            default_formatter_model = self.default_formatter_model
+                            default_llm_model = self.orchestration_model,
+                            default_formatter_model = self.formatter_model
                             )
         chat_history = results['chat_history']
         final_context = results['final_context']
