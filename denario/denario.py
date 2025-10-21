@@ -5,9 +5,6 @@ import os
 import shutil
 from pathlib import Path
 from PIL import Image 
-
-os.environ["CMBAGENT_DEBUG"] = "false"
-
 import cmbagent
 
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
@@ -71,15 +68,22 @@ class Denario:
 
         self.run_in_notebook = in_notebook()
 
+        self.set_all()
+
     def _setup_input_files(self) -> None:
         input_files_dir = os.path.join(self.project_dir, INPUT_FILES)
         
-        # If directory exists, remove it and all its contents
+        # If directory exists and want to clear it, remove it and all its contents
         if os.path.exists(input_files_dir) and self.clear_project_dir:
             shutil.rmtree(input_files_dir)
             
         # Create fresh input_files directory
         os.makedirs(input_files_dir, exist_ok=True)
+
+    def reset(self) -> None:
+        """Reset Research object"""
+
+        self.research = Research()
 
     #---
     # Setters
