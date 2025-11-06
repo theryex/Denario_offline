@@ -1,4 +1,4 @@
-from denario.llm import LLM, models
+from .llm import LLM, models
 
 def get_vllm_models(base_url: str):
     """Get available vLLM models from the API."""

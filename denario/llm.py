@@ -1,6 +1,5 @@
 from pydantic import BaseModel, PrivateAttr
 from typing import Dict, Any
-from .local_llm import get_vllm_models, get_ollama_models
 
 class LLM(BaseModel):
     _client: Any = PrivateAttr(default=None)
