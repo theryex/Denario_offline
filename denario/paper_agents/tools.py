@@ -15,9 +15,30 @@ def LLM_call(prompt, state):
     This function calls the LLM and update tokens
     """
 
-    message = state['llm']['llm'].invoke(prompt)
-    input_tokens  = message.usage_metadata['input_tokens']
-    output_tokens = message.usage_metadata['output_tokens']
+    if state['llm']['llm'].model_type == 'local':
+        if state['llm']['llm'].client == 'vllm':
+            message = state['llm']['llm']._client.completions.create(
+                model=state['llm']['llm'].name,
+                prompt=prompt,
+                max_tokens=state['llm']['max_output_tokens'],
+                temperature=state['llm']['temperature']
+            )
+            input_tokens = message.usage.prompt_tokens
+            output_tokens = message.usage.completion_tokens
+            content = message.choices[0].text
+        elif state['llm']['llm'].client == 'ollama':
+            message = state['llm']['llm']._client.chat(
+                model=state['llm']['llm'].name,
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            input_tokens = message['prompt_eval_count']
+            output_tokens = message['eval_count']
+            content = message['message']['content']
+    else:
+        message = state['llm']['llm'].invoke(prompt)
+        input_tokens  = message.usage_metadata['input_tokens']
+        output_tokens = message.usage_metadata['output_tokens']
+        content = message.content
     if output_tokens>state['llm']['max_output_tokens']:
         print('WARNING!! Max output tokens reach!')
     state['tokens']['ti'] += input_tokens
@@ -35,6 +56,12 @@ def LLM_call_stream(prompt, state):
     Calls the LLM with streaming enabled and writes output to file in real-time.
     Also updates token usage tracking.
     """
+    if state['llm']['llm'].model_type == 'local':
+        state, full_content = LLM_call(prompt, state)
+        if state['llm']['stream_verbose']:
+            print(full_content, end='', flush=True)
+        return state, full_content
+
     output_file_path = state['files']['f_stream']
     
     # Start streaming and writing/printing immediately

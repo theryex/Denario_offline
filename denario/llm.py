@@ -1,7 +1,9 @@
-from pydantic import BaseModel
-from typing import Dict
+from pydantic import BaseModel, PrivateAttr
+from typing import Dict, Any
+from .local_llm import get_vllm_models, get_ollama_models
 
 class LLM(BaseModel):
+    _client: Any = PrivateAttr(default=None)
     """LLM base model"""
     name: str
     """Name/identifier of the model."""
@@ -9,6 +11,10 @@ class LLM(BaseModel):
     """Maximum output tokens allowed."""
     temperature: float | None
     """Temperature of the model."""
+    model_type: str = "remote"
+    """Type of the model, can be 'remote' or 'local'."""
+    client: str | None = None
+    """Client to be used for local models, e.g., 'vllm' or 'ollama'."""
 
 gemini20flash = LLM(name="gemini-2.0-flash",
                     max_output_tokens=8192,
@@ -80,7 +86,23 @@ claude41opus = LLM(name="claude-opus-4-1-20250805",
                    temperature=0)
 """`claude-4.1-Opus` model."""
 
+vllm_llama3 = LLM(name="meta-llama/Meta-Llama-3-8B-Instruct",
+                  max_output_tokens=8192,
+                  temperature=0.7,
+                  model_type="local",
+                  client="vllm")
+"""vLLM Llama 3 model."""
+
+ollama_llama3 = LLM(name="llama3",
+                    max_output_tokens=8192,
+                    temperature=0.7,
+                    model_type="local",
+                    client="ollama")
+"""Ollama Llama 3 model."""
+
 models : Dict[str, LLM] = {
+                            "vllm-llama3": vllm_llama3,
+                            "ollama-llama3": ollama_llama3,
                             "gemini-2.0-flash" : gemini20flash,
                             "gemini-2.5-flash" : gemini25flash,
                             "gemini-2.5-pro" : gemini25pro,
@@ -97,3 +119,22 @@ models : Dict[str, LLM] = {
                             "claude-4.1-opus" : claude41opus,
                            }
 """Dictionary with the available models."""
+
+def update_models_with_local_llms(vllm_base_url: str | None = None, ollama_host: str | None = None):
+    """Update the models dictionary with available local LLMs."""
+    if vllm_base_url:
+        vllm_models = get_vllm_models(vllm_base_url)
+        for model_name in vllm_models:
+            models[f"vllm-{model_name}"] = LLM(name=model_name,
+                                               max_output_tokens=8192,
+                                               temperature=0.7,
+                                               model_type="local",
+                                               client="vllm")
+    if ollama_host:
+        ollama_models = get_ollama_models(ollama_host)
+        for model_name in ollama_models:
+            models[f"ollama-{model_name}"] = LLM(name=model_name,
+                                                 max_output_tokens=8192,
+                                                 temperature=0.7,
+                                                 model_type="local",
+                                                 client="ollama")
