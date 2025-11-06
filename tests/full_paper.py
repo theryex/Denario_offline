@@ -1,10 +1,6 @@
 from denario import Denario, Journal
 
-try:
-    den = Denario(ollama_host="http://localhost:11434")
-    den.get_idea(llm="ollama-llama3")
-except KeyError:
-    print("Ollama Llama 3 model not available. Skipping test.")
+den = Denario()
 
 data_description = r"""
 Write a short paper on harmonic oscillators. Generate several plots. Generate some data, which should not take more than 3 minutes to generate. 

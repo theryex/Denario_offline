@@ -1,5 +1,4 @@
 import requests
-import ollama
 
 def get_vllm_models(base_url: str) -> list[str]:
     """Get the list of available models from a vLLM server."""
@@ -14,6 +13,10 @@ def get_vllm_models(base_url: str) -> list[str]:
 
 def get_ollama_models(host: str) -> list[str]:
     """Get the list of available models from an Ollama server."""
+    try:
+        import ollama
+    except ImportError:
+        raise ImportError("The `ollama` package is required for Ollama support. Please install it with `pip install ollama`.")
     try:
         client = ollama.Client(host=host)
         models = client.list()["models"]

@@ -42,6 +42,7 @@ denario = "denario.cli:main"
 
 [project.optional-dependencies]
 app = ["denario_app>=1.0.0"]
+local = ["ollama", "openai"]
 docs = [
   "mkdocs",
   "mkdocstrings[python]",

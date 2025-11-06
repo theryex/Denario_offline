@@ -6,8 +6,6 @@ import shutil
 from pathlib import Path
 from PIL import Image 
 import cmbagent
-from openai import OpenAI
-import ollama
 
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
@@ -938,9 +936,17 @@ class Denario:
                 raise KeyError(f"LLM '{llm}' not available. Please select from: {list(models.keys())}")
         if llm.model_type == "local":
             if llm.client == "vllm":
+                try:
+                    from openai import OpenAI
+                except ImportError:
+                    raise ImportError("The `openai` package is required for vLLM support. Please install it with `pip install openai`.")
                 base_url = self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
                 llm._client = OpenAI(base_url=base_url)
             elif llm.client == "ollama":
+                try:
+                    import ollama
+                except ImportError:
+                    raise ImportError("The `ollama` package is required for Ollama support. Please install it with `pip install ollama`.")
                 host = self.ollama_host if self.ollama_host else "http://localhost:11434"
                 llm._client = ollama.Client(host=host)
         return llm
