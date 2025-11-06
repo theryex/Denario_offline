@@ -1,5 +1,7 @@
 import sys
 import argparse
+import subprocess
+import os
 
 def main():
     parser = argparse.ArgumentParser(prog="denario")
@@ -12,10 +14,12 @@ def main():
 
     if args.command == "run":
         try:
-            from denario_app.cli import run
-            run()
+            import streamlit
+            # Construct the full path to the app.py file
+            app_path = os.path.join(os.path.dirname(__file__), 'app.py')
+            subprocess.run(["streamlit", "run", app_path])
         except ImportError:
-            print("❌ DenarioApp not installed. Install with: pip install denario-app")
+            print("❌ Streamlit not installed. Install with: pip install streamlit")
             sys.exit(1)
     else:
         parser.print_help()

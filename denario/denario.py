@@ -10,7 +10,8 @@ import cmbagent
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
 from .key_manager import KeyManager
-from .llm import LLM, models, update_models_with_local_llms
+from .llm import LLM, models
+from .local_llm import update_models_with_local_llms
 from .paper_agents.journal import Journal
 from .idea import Idea
 from .method import Method
@@ -958,3 +959,14 @@ class Denario:
         self.vllm_base_url = vllm_base_url
         self.ollama_host = ollama_host
         update_models_with_local_llms(vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+
+    def get_local_models(self):
+        """Get a dictionary of available local models, grouped by client."""
+        local_models = {"vllm": [], "ollama": []}
+        for model_name, model in models.items():
+            if model.model_type == "local":
+                if model.client == "vllm":
+                    local_models["vllm"].append(model.name)
+                elif model.client == "ollama":
+                    local_models["ollama"].append(model.name)
+        return local_models

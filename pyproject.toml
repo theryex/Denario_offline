@@ -41,7 +41,7 @@ Repository = "https://github.com/AstroPilot-AI/Denario"
 denario = "denario.cli:main"
 
 [project.optional-dependencies]
-app = ["denario_app>=1.0.0"]
+app = ["streamlit"]
 local = ["ollama", "openai"]
 docs = [
   "mkdocs",

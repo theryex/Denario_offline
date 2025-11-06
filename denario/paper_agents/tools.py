@@ -56,14 +56,42 @@ def LLM_call_stream(prompt, state):
     Calls the LLM with streaming enabled and writes output to file in real-time.
     Also updates token usage tracking.
     """
+    output_file_path = state['files']['f_stream']
+
     if state['llm']['llm'].model_type == 'local':
-        state, full_content = LLM_call(prompt, state)
-        if state['llm']['stream_verbose']:
-            print(full_content, end='', flush=True)
+        full_content = ''
+        with open(output_file_path, 'a') as f:
+            if state['llm']['llm'].client == 'vllm':
+                stream = state['llm']['llm']._client.completions.create(
+                    model=state['llm']['llm'].name,
+                    prompt=prompt,
+                    max_tokens=state['llm']['max_output_tokens'],
+                    temperature=state['llm']['temperature'],
+                    stream=True
+                )
+                for chunk in stream:
+                    text = chunk.choices[0].text
+                    f.write(text)
+                    f.flush()
+                    if state['llm']['stream_verbose']:
+                        print(text, end='', flush=True)
+                    full_content += text
+            elif state['llm']['llm'].client == 'ollama':
+                stream = state['llm']['llm']._client.chat(
+                    model=state['llm']['llm'].name,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    stream=True
+                )
+                for chunk in stream:
+                    text = chunk['message']['content']
+                    f.write(text)
+                    f.flush()
+                    if state['llm']['stream_verbose']:
+                        print(text, end='', flush=True)
+                    full_content += text
+        # Token counting for local models is not available in streaming mode, so we'll have to approximate or omit it.
         return state, full_content
 
-    output_file_path = state['files']['f_stream']
-    
     # Start streaming and writing/printing immediately
     full_content = ''
     state['tokens']['i'] = 0
