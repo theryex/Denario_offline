@@ -2,8 +2,6 @@ import os
 import re
 from pathlib import Path
 import warnings
-from openai import OpenAI
-import ollama
 
 from .llm import LLM, models
 
