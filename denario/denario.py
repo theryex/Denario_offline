@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 from PIL import Image 
 import cmbagent
+from openai import OpenAI
+import ollama
 
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
@@ -16,7 +18,7 @@ from .idea import Idea
 from .method import Method
 from .experiment import Experiment
 from .paper_agents.agents_graph import build_graph
-from .utils import llm_parser, input_check, check_file_paths, in_notebook
+from .utils import input_check, check_file_paths, in_notebook
 from .langgraph_agents.agents_graph import build_lg_graph
 from cmbagent import preprocess_task
 
@@ -70,10 +72,7 @@ class Denario:
 
         self.run_in_notebook = in_notebook()
 
-        self.vllm_base_url = vllm_base_url
-        self.ollama_host = ollama_host
-
-        update_models_with_local_llms(vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        self.connect_local_llm(vllm_base_url, ollama_host)
 
         self.set_all()
 
@@ -340,12 +339,12 @@ class Denario:
         """
 
         # Get LLM instances
-        idea_maker_model = llm_parser(idea_maker_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        idea_hater_model = llm_parser(idea_hater_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        planner_model = llm_parser(planner_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        plan_reviewer_model = llm_parser(plan_reviewer_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        orchestration_model = llm_parser(orchestration_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        formatter_model = llm_parser(formatter_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        idea_maker_model = self._llm_parser(idea_maker_model)
+        idea_hater_model = self._llm_parser(idea_hater_model)
+        planner_model = self._llm_parser(planner_model)
+        plan_reviewer_model = self._llm_parser(plan_reviewer_model)
+        orchestration_model = self._llm_parser(orchestration_model)
+        formatter_model = self._llm_parser(formatter_model)
         
         if self.research.data_description == "":
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -387,7 +386,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = llm_parser(llm, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        llm = self._llm_parser(llm)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -510,7 +509,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = llm_parser(llm, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        llm = self._llm_parser(llm)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -620,11 +619,11 @@ class Denario:
             with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'r') as f:
                 self.research.idea = f.read()
 
-        method_generator_model = llm_parser(method_generator_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        planner_model = llm_parser(planner_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        plan_reviewer_model = llm_parser(plan_reviewer_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        orchestration_model = llm_parser(orchestration_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        formatter_model = llm_parser(formatter_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        method_generator_model = self._llm_parser(method_generator_model)
+        planner_model = self._llm_parser(planner_model)
+        plan_reviewer_model = self._llm_parser(plan_reviewer_model)
+        orchestration_model = self._llm_parser(orchestration_model)
+        formatter_model = self._llm_parser(formatter_model)
 
         method = Method(self.research.idea, keys=self.keys,  
                         work_dir = self.project_dir, 
@@ -659,7 +658,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = llm_parser(llm, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        llm = self._llm_parser(llm)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -723,12 +722,12 @@ class Denario:
         """
 
         # Get LLM instances
-        engineer_model = llm_parser(engineer_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        researcher_model = llm_parser(researcher_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        planner_model = llm_parser(planner_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        plan_reviewer_model = llm_parser(plan_reviewer_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        orchestration_model = llm_parser(orchestration_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
-        formatter_model = llm_parser(formatter_model, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        engineer_model = self._llm_parser(engineer_model)
+        researcher_model = self._llm_parser(researcher_model)
+        planner_model = self._llm_parser(planner_model)
+        plan_reviewer_model = self._llm_parser(plan_reviewer_model)
+        orchestration_model = self._llm_parser(orchestration_model)
+        formatter_model = self._llm_parser(formatter_model)
 
         if self.research.data_description == "":
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -834,7 +833,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = llm_parser(llm, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        llm = self._llm_parser(llm)
 
         # Build graph
         graph = build_graph(mermaid_diagram=False)
@@ -877,7 +876,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = llm_parser(llm, vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
+        llm = self._llm_parser(llm)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -929,3 +928,27 @@ class Denario:
         self.get_method()
         self.get_results()
         self.get_paper()
+
+    def _llm_parser(self, llm: LLM | str) -> LLM:
+        """Get the LLM instance from a string."""
+        if isinstance(llm, str):
+            try:
+                llm = models[llm]
+            except KeyError:
+                raise KeyError(f"LLM '{llm}' not available. Please select from: {list(models.keys())}")
+        if llm.model_type == "local":
+            if llm.client == "vllm":
+                base_url = self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
+                llm._client = OpenAI(base_url=base_url)
+            elif llm.client == "ollama":
+                host = self.ollama_host if self.ollama_host else "http://localhost:11434"
+                llm._client = ollama.Client(host=host)
+        return llm
+
+    def connect_local_llm(self, vllm_base_url: str | None = None, ollama_host: str | None = None):
+        """
+        Connect to local LLMs and update the available models.
+        """
+        self.vllm_base_url = vllm_base_url
+        self.ollama_host = ollama_host
+        update_models_with_local_llms(vllm_base_url=self.vllm_base_url, ollama_host=self.ollama_host)
