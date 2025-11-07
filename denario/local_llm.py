@@ -1,23 +1,23 @@
 from .llm import LLM, models
+import requests
 
 def get_vllm_models(base_url: str):
     """Get available vLLM models from the API."""
     try:
-        from openai import OpenAI
-        # Provide a dummy API key for local instances
-        client = OpenAI(base_url=base_url, api_key="dummy")
-        return [model.id for model in client.models.list()]
-    except Exception as e:
+        response = requests.get(f"{base_url}/models")
+        response.raise_for_status()
+        return [model['id'] for model in response.json()['data']]
+    except requests.exceptions.RequestException as e:
         print(f"Warning: Could not connect to vLLM API at {base_url}. vLLM models will not be available. Error: {e}")
         return []
 
 def get_ollama_models(host: str):
     """Get available Ollama models from the API."""
     try:
-        import ollama
-        client = ollama.Client(host=host)
-        return [model['name'] for model in client.list()['models']]
-    except Exception as e:
+        response = requests.get(f"{host}/api/tags")
+        response.raise_for_status()
+        return [model['name'] for model in response.json()['models']]
+    except requests.exceptions.RequestException as e:
         print(f"Warning: Could not connect to Ollama API at {host}. Ollama models will not be available. Error: {e}")
         return []
 

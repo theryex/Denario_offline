@@ -30,6 +30,7 @@ dependencies = [
   "futurehouse-client",
   "json5",
   "pip",
+  "requests",
 ]
 
 [project.urls]
@@ -42,7 +43,7 @@ denario = "denario.cli:main"
 
 [project.optional-dependencies]
 app = ["streamlit"]
-local = ["ollama", "openai"]
+local = ["openai"]
 docs = [
   "mkdocs",
   "mkdocstrings[python]",

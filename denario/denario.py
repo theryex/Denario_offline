@@ -6,12 +6,13 @@ import shutil
 from pathlib import Path
 from PIL import Image 
 import cmbagent
+import streamlit as st
 
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
 from .key_manager import KeyManager
 from .llm import LLM, models
-from .local_llm import update_models_with_local_llms
+from .local_llm import update_models_with_local_llms, get_vllm_models, get_ollama_models
 from .paper_agents.journal import Journal
 from .idea import Idea
 from .method import Method
@@ -401,7 +402,8 @@ class Denario:
             "llm": {"model": llm.name,                #name of the LLM model to use
                     "temperature": llm.temperature,
                     "max_output_tokens": llm.max_output_tokens,
-                    "stream_verbose": verbose},
+                    "stream_verbose": verbose,
+                    "ollama_host": self.ollama_host},
             "keys": self.keys,
             "idea": {"total_iterations": iterations},
         }
@@ -526,7 +528,8 @@ class Denario:
             "llm": {"model": llm.name,                #name of the LLM model to use
                     "temperature": llm.temperature,
                     "max_output_tokens": llm.max_output_tokens,
-                    "stream_verbose": verbose},
+                    "stream_verbose": verbose,
+                    "ollama_host": self.ollama_host},
             "keys": self.keys,
             "literature": {"max_iterations": max_iterations},
             "idea": {"total_iterations": 4},
@@ -675,7 +678,8 @@ class Denario:
             "llm": {"model": llm.name,                #name of the LLM model to use
                     "temperature": llm.temperature,
                     "max_output_tokens": llm.max_output_tokens,
-                    "stream_verbose": verbose},
+                    "stream_verbose": verbose,
+                    "ollama_host": self.ollama_host},
             "keys": self.keys,
             "idea": {"total_iterations": 4},
         }
@@ -891,7 +895,8 @@ class Denario:
             "llm": {"model": llm.name,                #name of the LLM model to use
                     "temperature": llm.temperature,
                     "max_output_tokens": llm.max_output_tokens,
-                    "stream_verbose": verbose},
+                    "stream_verbose": verbose,
+                    "ollama_host": self.ollama_host},
             "keys": self.keys,
             "referee": {"paper_version": 2},
         }
@@ -944,12 +949,8 @@ class Denario:
                 base_url = self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
                 llm._client = OpenAI(base_url=base_url)
             elif llm.client == "ollama":
-                try:
-                    import ollama
-                except ImportError:
-                    raise ImportError("The `ollama` package is required for Ollama support. Please install it with `pip install ollama`.")
-                host = self.ollama_host if self.ollama_host else "http://localhost:11434"
-                llm._client = ollama.Client(host=host)
+                # No client needed, will use requests directly
+                pass
         return llm
 
     def connect_local_llm(self, vllm_base_url: str | None = None, ollama_host: str | None = None):
@@ -970,3 +971,44 @@ class Denario:
                 elif model.client == "ollama":
                     local_models["ollama"].append(model.name)
         return local_models
+
+    def render_ui(self):
+        """Render the Streamlit UI for the Denario application."""
+        st.title("Denario")
+
+        tabs = st.tabs(["Idea", "Methods", "Analysis", "Paper"])
+
+        for i, tab in enumerate(tabs):
+            with tab:
+                st.header(f"LLM Configuration for {tab.title()}")
+
+                llm_source = st.radio("Select LLM Source", ("External", "Local"), key=f"source_{i}")
+
+                if llm_source == "External":
+                    model_name = st.selectbox("Select Model", options=list(models.keys()), key=f"model_{i}")
+                    st.session_state[f'llm_{i}'] = models[model_name]
+
+                else: # Local
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        provider = st.selectbox("Select Provider", ("vLLM", "Ollama"), key=f"provider_{i}")
+                        ip = st.text_input("IP Address", "localhost", key=f"ip_{i}")
+                    with col2:
+                        port = st.text_input("Port", "8000" if provider == "vLLM" else "11434", key=f"port_{i}")
+
+                    if st.button("Fetch Models", key=f"fetch_{i}"):
+                        if provider == "vLLM":
+                            url = f"http://{ip}:{port}/v1"
+                            st.session_state[f'local_models_{i}'] = get_vllm_models(url)
+                        else: # Ollama
+                            url = f"http://{ip}:{port}"
+                            st.session_state[f'local_models_{i}'] = get_ollama_models(url)
+
+                    if f'local_models_{i}' in st.session_state:
+                        model_name = st.selectbox("Select Model", options=st.session_state[f'local_models_{i}'], key=f"local_model_{i}")
+                        if model_name:
+                             st.session_state[f'llm_{i}'] = LLM(name=model_name,
+                                                               max_output_tokens=8192,
+                                                               temperature=0.7,
+                                                               model_type="local",
+                                                               client=provider.lower())

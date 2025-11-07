@@ -3,6 +3,7 @@ import sys
 import json
 import json5
 from pathlib import Path
+import requests
 
 from .prompts import fixer_prompt, LaTeX_prompt
 from .parameters import GraphState
@@ -27,10 +28,16 @@ def LLM_call(prompt, state):
             output_tokens = message.usage.completion_tokens
             content = message.choices[0].text
         elif state['llm']['llm'].client == 'ollama':
-            message = state['llm']['llm']._client.chat(
-                model=state['llm']['llm'].name,
-                messages=[{'role': 'user', 'content': prompt}]
+            response = requests.post(
+                f"{state['llm']['ollama_host']}/api/chat",
+                json={
+                    "model": state['llm']['llm'].name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                },
             )
+            response.raise_for_status()
+            message = response.json()
             input_tokens = message['prompt_eval_count']
             output_tokens = message['eval_count']
             content = message['message']['content']
@@ -48,7 +55,7 @@ def LLM_call(prompt, state):
     with open(state['files']['LLM_calls'], 'a') as f:
         f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
     
-    return state, message.content
+    return state, content
 
 
 def LLM_call_stream(prompt, state):
@@ -77,18 +84,25 @@ def LLM_call_stream(prompt, state):
                         print(text, end='', flush=True)
                     full_content += text
             elif state['llm']['llm'].client == 'ollama':
-                stream = state['llm']['llm']._client.chat(
-                    model=state['llm']['llm'].name,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    stream=True
+                response = requests.post(
+                    f"{state['llm']['ollama_host']}/api/chat",
+                    json={
+                        "model": state['llm']['llm'].name,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": True,
+                    },
+                    stream=True,
                 )
-                for chunk in stream:
-                    text = chunk['message']['content']
-                    f.write(text)
-                    f.flush()
-                    if state['llm']['stream_verbose']:
-                        print(text, end='', flush=True)
-                    full_content += text
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if line:
+                        chunk = json.loads(line)
+                        text = chunk['message']['content']
+                        f.write(text)
+                        f.flush()
+                        if state['llm']['stream_verbose']:
+                            print(text, end='', flush=True)
+                        full_content += text
         # Token counting for local models is not available in streaming mode, so we'll have to approximate or omit it.
         return state, full_content
 
