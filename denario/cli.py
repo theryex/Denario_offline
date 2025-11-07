@@ -17,7 +17,7 @@ def main():
             import streamlit
             # Construct the full path to the app.py file
             app_path = os.path.join(os.path.dirname(__file__), 'app.py')
-            subprocess.run(["streamlit", "run", app_path])
+            subprocess.Popen(["streamlit", "run", app_path])
         except ImportError:
             print("❌ Streamlit not installed. Install with: pip install streamlit")
             sys.exit(1)
