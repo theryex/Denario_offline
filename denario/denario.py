@@ -308,7 +308,7 @@ class Denario:
         print(f"Generating idea with {mode} mode")
 
         if mode == "fast":
-            self.get_idea_fast(llm=llm)
+            self.get_idea_fast(llm=st.session_state['llm_0'])
         elif mode == "cmbagent":
             self.get_idea_cmagent(idea_maker_model=idea_maker_model,
                                   idea_hater_model=idea_hater_model,
@@ -386,7 +386,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm)
+        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_0'), ollama_host=st.session_state.get('ollama_host_0'))
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -585,7 +585,7 @@ class Denario:
         print(f"Generating methodology with {mode} mode")
 
         if mode == "fast":
-            self.get_method_fast(llm=llm, verbose=verbose)
+            self.get_method_fast(llm=st.session_state['llm_1'], verbose=verbose)
         elif mode == "cmbagent":
             self.get_method_cmbagent(method_generator_model=method_generator_model,
                                      planner_model=planner_model,
@@ -660,7 +660,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm)
+        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_1'), ollama_host=st.session_state.get('ollama_host_1'))
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -879,7 +879,7 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm)
+        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_3'), ollama_host=st.session_state.get('ollama_host_3'))
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -933,7 +933,7 @@ class Denario:
         self.get_results()
         self.get_paper()
 
-    def _llm_parser(self, llm: LLM | str) -> LLM:
+    def _llm_parser(self, llm: LLM | str, vllm_base_url: str | None = None, ollama_host: str | None = None) -> LLM:
         """Get the LLM instance from a string."""
         if isinstance(llm, str):
             try:
@@ -946,11 +946,11 @@ class Denario:
                     from openai import OpenAI
                 except ImportError:
                     raise ImportError("The `openai` package is required for vLLM support. Please install it with `pip install openai`.")
-                base_url = self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
+                base_url = vllm_base_url if vllm_base_url else self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
                 llm._client = OpenAI(base_url=base_url)
             elif llm.client == "ollama":
                 # No client needed, will use requests directly
-                pass
+                self.ollama_host = ollama_host if ollama_host else self.ollama_host if self.ollama_host else "http://localhost:11434"
         return llm
 
     def connect_local_llm(self, vllm_base_url: str | None = None, ollama_host: str | None = None):
@@ -976,11 +976,12 @@ class Denario:
         """Render the Streamlit UI for the Denario application."""
         st.title("Denario")
 
-        tabs = st.tabs(["Idea", "Methods", "Analysis", "Paper"])
+        tab_names = ["Idea", "Methods", "Analysis", "Paper"]
+        tabs = st.tabs(tab_names)
 
         for i, tab in enumerate(tabs):
             with tab:
-                st.header(f"LLM Configuration for {tab.title()}")
+                st.header(f"LLM Configuration for {tab_names[i]}")
 
                 llm_source = st.radio("Select LLM Source", ("External", "Local"), key=f"source_{i}")
 
@@ -999,9 +1000,11 @@ class Denario:
                     if st.button("Fetch Models", key=f"fetch_{i}"):
                         if provider == "vLLM":
                             url = f"http://{ip}:{port}/v1"
+                            st.session_state[f'vllm_host_{i}'] = url
                             st.session_state[f'local_models_{i}'] = get_vllm_models(url)
                         else: # Ollama
                             url = f"http://{ip}:{port}"
+                            st.session_state[f'ollama_host_{i}'] = url
                             st.session_state[f'local_models_{i}'] = get_ollama_models(url)
 
                     if f'local_models_{i}' in st.session_state:
