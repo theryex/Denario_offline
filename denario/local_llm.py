@@ -4,11 +4,9 @@ def get_vllm_models(base_url: str):
     """Get available vLLM models from the API."""
     try:
         from openai import OpenAI
-        client = OpenAI(base_url=base_url)
+        # Provide a dummy API key for local instances
+        client = OpenAI(base_url=base_url, api_key="dummy")
         return [model.id for model in client.models.list()]
-    except ImportError:
-        print("Warning: `openai` package not found. vLLM models will not be available.")
-        return []
     except Exception as e:
         print(f"Warning: Could not connect to vLLM API at {base_url}. vLLM models will not be available. Error: {e}")
         return []
@@ -19,9 +17,6 @@ def get_ollama_models(host: str):
         import ollama
         client = ollama.Client(host=host)
         return [model['name'] for model in client.list()['models']]
-    except ImportError:
-        print("Warning: `ollama` package not found. Ollama models will not be available.")
-        return []
     except Exception as e:
         print(f"Warning: Could not connect to Ollama API at {host}. Ollama models will not be available. Error: {e}")
         return []
