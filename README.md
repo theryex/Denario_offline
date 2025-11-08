@@ -139,6 +139,11 @@ And install the project
 pip install -e .
 ```
 
+To install with support for local LLMs (Ollama, vLLM), run:
+```bash
+pip install -e '.[local]'
+```
+
 ### uv
 
 You can also install the project using [uv](https://docs.astral.sh/uv/), just running:

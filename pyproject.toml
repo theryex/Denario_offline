@@ -31,7 +31,6 @@ dependencies = [
   "json5",
   "pip",
   "requests",
-  "langchain-community",
 ]
 
 [project.urls]
@@ -44,7 +43,7 @@ denario = "denario.cli:main"
 
 [project.optional-dependencies]
 app = ["streamlit"]
-local = ["openai"]
+local = ["openai", "langchain-community"]
 docs = [
   "mkdocs",
   "mkdocstrings[python]",
