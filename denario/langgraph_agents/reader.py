@@ -3,6 +3,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain_community.chat_models import ChatOllama
 
 from .parameters import GraphState
 from ..config import INPUT_FILES, IDEA_FILE, METHOD_FILE, LITERATURE_FILE, REFEREE_FILE, PAPER_FOLDER
@@ -17,21 +18,28 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
 
     #########################################
     # set the LLM
-    if 'llm_obj' in state['llm']:
-        state['llm']['llm'] = state['llm']['llm_obj']
-    elif 'gemini' in state['llm']['model']:
-        state['llm']['llm'] = ChatGoogleGenerativeAI(model=state['llm']['model'],
-                                                temperature=state['llm']['temperature'],
+    llm_config = state['llm']['llm_obj']
+    if llm_config.model_type == 'local':
+        if llm_config.client == 'ollama':
+            state['llm']['llm'] = ChatOllama(model=llm_config.name,
+                                             base_url=state['llm']['ollama_host'])
+        elif llm_config.client == 'vllm':
+             state['llm']['llm'] = ChatOpenAI(model=llm_config.name,
+                                              openai_api_base=state['llm']['vllm_host'],
+                                              openai_api_key="EMPTY")
+    elif 'gemini' in llm_config.name:
+        state['llm']['llm'] = ChatGoogleGenerativeAI(model=llm_config.name,
+                                                temperature=llm_config.temperature,
                                                 google_api_key=state["keys"].GEMINI)
 
-    elif any(key in state['llm']['model'] for key in ['gpt', 'o3']):
-        state['llm']['llm'] = ChatOpenAI(model=state['llm']['model'],
-                                         temperature=state['llm']['temperature'],
+    elif any(key in llm_config.name for key in ['gpt', 'o3']):
+        state['llm']['llm'] = ChatOpenAI(model=llm_config.name,
+                                         temperature=llm_config.temperature,
                                          openai_api_key=state["keys"].OPENAI)
                     
-    elif 'claude' in state['llm']['model']  or 'anthropic' in state['llm']['model'] :
-        state['llm']['llm'] = ChatAnthropic(model=state['llm']['model'],
-                                            temperature=state['llm']['temperature'],
+    elif 'claude' in llm_config.name  or 'anthropic' in llm_config.name :
+        state['llm']['llm'] = ChatAnthropic(model=llm_config.name,
+                                            temperature=llm_config.temperature,
                                             anthropic_api_key=state["keys"].ANTHROPIC)
     #########################################
 

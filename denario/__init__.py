@@ -1,12 +1,7 @@
-from .denario import Denario, Research, Journal, LLM, models, KeyManager
-from .config import REPO_DIR
+from .denario import Denario, Research, Journal, LLM, KeyManager
 
-__all__ = ['Denario', 'Research', 'Journal', 'REPO_DIR', 'LLM', "models", "KeyManager"]
-
-from importlib.metadata import version, PackageNotFoundError
-
-try:
-    __version__ = version("denario")
-except PackageNotFoundError:
-    # fallback for editable installs, local runs, etc.
-    __version__ = "0.0.0"
+def __getattr__(name):
+    if name == "models":
+        from .llm import models
+        return models
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

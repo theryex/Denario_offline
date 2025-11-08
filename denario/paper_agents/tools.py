@@ -3,7 +3,6 @@ import sys
 import json
 import json5
 from pathlib import Path
-import requests
 
 from .prompts import fixer_prompt, LaTeX_prompt
 from .parameters import GraphState
@@ -15,39 +14,16 @@ def LLM_call(prompt, state):
     """
     This function calls the LLM and update tokens
     """
-    prompt_content = prompt.content if hasattr(prompt, 'content') else prompt
-
-    if state['llm']['llm'].model_type == 'local':
-        if state['llm']['llm'].client == 'vllm':
-            message = state['llm']['llm']._client.completions.create(
-                model=state['llm']['llm'].name,
-                prompt=prompt_content,
-                max_tokens=state['llm']['max_output_tokens'],
-                temperature=state['llm']['temperature']
-            )
-            input_tokens = message.usage.prompt_tokens
-            output_tokens = message.usage.completion_tokens
-            content = message.choices[0].text
-        elif state['llm']['llm'].client == 'ollama':
-            response = requests.post(
-                f"{state['llm']['ollama_host']}/api/chat",
-                json={
-                    "model": state['llm']['llm'].name,
-                    "messages": [{"role": "user", "content": prompt_content}],
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            message = response.json()
-            input_tokens = message['prompt_eval_count']
-            output_tokens = message['eval_count']
-            content = message['message']['content']
-    else:
-        message = state['llm']['llm'].invoke(prompt)
+    message = state['llm']['llm'].invoke(prompt)
+    try:
         input_tokens  = message.usage_metadata['input_tokens']
         output_tokens = message.usage_metadata['output_tokens']
-        content = message.content
-    if output_tokens>state['llm']['max_output_tokens']:
+    except (KeyError, AttributeError):
+        input_tokens = 0
+        output_tokens = 0
+
+    content = message.content
+    if output_tokens>state['llm']['llm'].max_output_tokens:
         print('WARNING!! Max output tokens reach!')
     state['tokens']['ti'] += input_tokens
     state['tokens']['to'] += output_tokens
@@ -65,49 +41,6 @@ def LLM_call_stream(prompt, state):
     Also updates token usage tracking.
     """
     output_file_path = state['files']['f_stream']
-    prompt_content = prompt.content if hasattr(prompt, 'content') else prompt
-
-    if state['llm']['llm'].model_type == 'local':
-        full_content = ''
-        with open(output_file_path, 'a') as f:
-            if state['llm']['llm'].client == 'vllm':
-                stream = state['llm']['llm']._client.completions.create(
-                    model=state['llm']['llm'].name,
-                    prompt=prompt_content,
-                    max_tokens=state['llm']['max_output_tokens'],
-                    temperature=state['llm']['temperature'],
-                    stream=True
-                )
-                for chunk in stream:
-                    text = chunk.choices[0].text
-                    f.write(text)
-                    f.flush()
-                    if state['llm']['stream_verbose']:
-                        print(text, end='', flush=True)
-                    full_content += text
-            elif state['llm']['llm'].client == 'ollama':
-                payload = {
-                    "model": state['llm']['llm'].model_name,
-                    "messages": [{"role": "user", "content": prompt_content}],
-                    "stream": True,
-                }
-                response = requests.post(
-                    f"{state['llm']['ollama_host']}/api/chat",
-                    json=payload,
-                    stream=True,
-                )
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if line:
-                        chunk = json.loads(line)
-                        text = chunk['message']['content']
-                        f.write(text)
-                        f.flush()
-                        if state['llm']['stream_verbose']:
-                            print(text, end='', flush=True)
-                        full_content += text
-        # Token counting for local models is not available in streaming mode, so we'll have to approximate or omit it.
-        return state, full_content
 
     # Start streaming and writing/printing immediately
     full_content = ''
@@ -127,7 +60,7 @@ def LLM_call_stream(prompt, state):
             if usage:
                 input_tokens = usage.get('input_tokens', 0)
                 output_tokens = usage.get('output_tokens', 0)
-                if output_tokens > state['llm']['max_output_tokens']:
+                if output_tokens > state['llm']['llm'].max_output_tokens:
                     print('WARNING!! Max output tokens reached!')
 
                 state['tokens']['ti'] += input_tokens

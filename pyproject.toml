@@ -31,6 +31,7 @@ dependencies = [
   "json5",
   "pip",
   "requests",
+  "langchain-community",
 ]
 
 [project.urls]
