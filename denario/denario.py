@@ -72,6 +72,8 @@ class Denario:
 
         self.run_in_notebook = in_notebook()
 
+        self.llm = models['gpt-4o'] # Default LLM
+
         self.connect_local_llm(vllm_base_url, ollama_host)
 
         self.set_all()
@@ -155,6 +157,10 @@ class Denario:
                 plot_name = f"plot_{i}.png"
             
             img.save( os.path.join(self.project_dir, INPUT_FILES, PLOTS_FOLDER, plot_name) )
+
+    def set_llm(self, llm: LLM | str):
+        """Sets the language model to be used by the agent."""
+        self.llm = self._llm_parser(llm)
 
     def set_all(self) -> None:
         """Set all Research fields if present in the working directory"""
@@ -284,7 +290,7 @@ class Denario:
 
     def get_idea(self,
                  mode = "fast",
-                 llm: LLM | str = models["gemini-2.0-flash"],
+                 llm: LLM | str | None = None,
                  idea_maker_model: LLM | str = models["gpt-4o"],
                  idea_hater_model: LLM | str = models["o3-mini"],
                  planner_model: LLM | str = models["gpt-4o"],
@@ -296,7 +302,7 @@ class Denario:
 
         Args:
             mode: either "fast" or "cmbagent". Fast mode uses langgraph backend and is faster but less reliable. Cmbagent mode uses cmbagent backend and is slower but more reliable.
-            llm: the LLM to be used for the fast mode.
+            llm: the LLM to be used for the fast mode. If None, the LLM set in the Denario object will be used.
             idea_maker_model: the LLM to be used for the idea maker agent.
             idea_hater_model: the LLM to be used for the idea hater agent.
             planner_model: the LLM to be used for the planner agent.
@@ -307,8 +313,10 @@ class Denario:
 
         print(f"Generating idea with {mode} mode")
 
+        llm_to_use = llm if llm is not None else self.llm
+
         if mode == "fast":
-            self.get_idea_fast(llm=st.session_state['llm_0'])
+            self.get_idea_fast(llm=llm_to_use)
         elif mode == "cmbagent":
             self.get_idea_cmagent(idea_maker_model=idea_maker_model,
                                   idea_hater_model=idea_hater_model,
@@ -369,7 +377,7 @@ class Denario:
         self.idea = idea
 
     def get_idea_fast(self,
-                      llm: LLM | str = models["gemini-2.0-flash"],
+                      llm: LLM | str | None = None,
                       iterations: int = 4,
                       verbose=False,
                       ) -> None:
@@ -386,7 +394,8 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_0'), ollama_host=st.session_state.get('ollama_host_0'))
+        llm_to_use = llm if llm is not None else self.llm
+        llm_to_use = self._llm_parser(llm_to_use)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -399,11 +408,12 @@ class Denario:
             "task": "idea_generation",
             "files":{"Folder": self.project_dir,
                      "data_description": f_data_description}, #name of project folder
-            "llm": {"model": llm.name,                #name of the LLM model to use
-                    "temperature": llm.temperature,
-                    "max_output_tokens": llm.max_output_tokens,
+            "llm": {"model": llm_to_use.name,                #name of the LLM model to use
+                    "temperature": llm_to_use.temperature,
+                    "max_output_tokens": llm_to_use.max_output_tokens,
                     "stream_verbose": verbose,
-                    "ollama_host": self.ollama_host},
+                    "ollama_host": self.ollama_host,
+                    "llm_obj": llm_to_use},
             "keys": self.keys,
             "idea": {"total_iterations": iterations},
         }
@@ -420,7 +430,7 @@ class Denario:
 
     def check_idea(self,
                    mode : str = 'semantic_scholar',
-                   llm: LLM | str = models["gemini-2.5-flash"],
+                   llm: LLM | str | None = None,
                    max_iterations: int = 7,
                    verbose=False) -> str:
         """
@@ -439,8 +449,8 @@ class Denario:
             return self.check_idea_futurehouse()
 
         elif mode == 'semantic_scholar':
-
-            return self.check_idea_semantic_scholar(llm=llm, max_iterations=max_iterations, verbose=verbose)
+            llm_to_use = llm if llm is not None else self.llm
+            return self.check_idea_semantic_scholar(llm=llm_to_use, max_iterations=max_iterations, verbose=verbose)
         
         else:
             raise ValueError("Mode must be either 'futurehouse' or 'semantic_scholar'")
@@ -492,7 +502,7 @@ class Denario:
         return answer
 
     def check_idea_semantic_scholar(self,
-                        llm: LLM | str = models["gemini-2.5-flash"],
+                        llm: LLM | str | None = None,
                         max_iterations: int = 7,
                         verbose=False,
                         ) -> str:
@@ -510,7 +520,8 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm)
+        llm_to_use = llm if llm is not None else self.llm
+        llm_to_use = self._llm_parser(llm_to_use)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -525,9 +536,9 @@ class Denario:
             "files":{"Folder": self.project_dir, #name of project folder
                      "data_description": f_data_description,
                      "idea": f_idea}, 
-            "llm": {"model": llm.name,                #name of the LLM model to use
-                    "temperature": llm.temperature,
-                    "max_output_tokens": llm.max_output_tokens,
+            "llm": {"model": llm_to_use.name,                #name of the LLM model to use
+                    "temperature": llm_to_use.temperature,
+                    "max_output_tokens": llm_to_use.max_output_tokens,
                     "stream_verbose": verbose,
                     "ollama_host": self.ollama_host},
             "keys": self.keys,
@@ -561,7 +572,7 @@ class Denario:
         
     def get_method(self,
                    mode = "fast",
-                   llm: LLM | str = models["gemini-2.0-flash"],
+                   llm: LLM | str | None = None,
                    method_generator_model: LLM | str = models["gpt-4o"],
                    planner_model: LLM | str = models["gpt-4o"],
                    plan_reviewer_model: LLM | str = models["o3-mini"],
@@ -574,18 +585,20 @@ class Denario:
         
         Args:
             mode: either "fast" or "cmbagent". Fast mode uses langgraph backend and is faster but less reliable. Cmbagent mode uses cmbagent backend and is slower but more reliable.
-            llm: the LLM to be used for the fast mode.
+            llm: the LLM to be used for the fast mode. If None, the LLM set in the Denario object will be used.
             method_generator_model: (researcher) the LLM model to be used for the researcher agent.
             planner_model: the LLM model to be used for the planner agent.
             plan_reviewer_model: the LLM model to be used for the plan reviewer agent.
-            orchestration_model: the LLM to be used for the orchestration of the agents.
-            formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM model to be used for the orchestration of the agents.
+            formatter_model: the LLM model to be used for formatting the responses of the agents.
         """
 
         print(f"Generating methodology with {mode} mode")
 
+        llm_to_use = llm if llm is not None else self.llm
+
         if mode == "fast":
-            self.get_method_fast(llm=st.session_state['llm_1'], verbose=verbose)
+            self.get_method_fast(llm=llm_to_use, verbose=verbose)
         elif mode == "cmbagent":
             self.get_method_cmbagent(method_generator_model=method_generator_model,
                                      planner_model=planner_model,
@@ -609,8 +622,8 @@ class Denario:
             method_generator_model: (researcher) the LLM model to be used for the researcher agent.
             planner_model: the LLM model to be used for the planner agent.
             plan_reviewer_model: the LLM model to be used for the plan reviewer agent.
-            orchestration_model: the LLM to be used for the orchestration of the agents.
-            formatter_model: the LLM to be used for formatting the responses of the agents.
+            orchestration_model: the LLM model to be used for the orchestration of the agents.
+            formatter_model: the LLM model to be used for formatting the responses of the agents.
         """
 
         if self.research.data_description == "":
@@ -644,7 +657,7 @@ class Denario:
             f.write(methododology)
 
     def get_method_fast(self,
-                        llm: LLM | str = models["gemini-2.0-flash"],
+                        llm: LLM | str | None = None,
                         verbose=False,
                         ) -> None:
         """
@@ -660,7 +673,8 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_1'), ollama_host=st.session_state.get('ollama_host_1'))
+        llm_to_use = llm if llm is not None else self.llm
+        llm_to_use = self._llm_parser(llm_to_use)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -675,9 +689,9 @@ class Denario:
             "files":{"Folder": self.project_dir,              #name of project folder
                      "data_description": f_data_description,
                      "idea": f_idea}, 
-            "llm": {"model": llm.name,                #name of the LLM model to use
-                    "temperature": llm.temperature,
-                    "max_output_tokens": llm.max_output_tokens,
+            "llm": {"model": llm_to_use.name,                #name of the LLM model to use
+                    "temperature": llm_to_use.temperature,
+                    "max_output_tokens": llm_to_use.max_output_tokens,
                     "stream_verbose": verbose,
                     "ollama_host": self.ollama_host},
             "keys": self.keys,
@@ -800,7 +814,7 @@ class Denario:
 
     def get_paper(self,
                   journal: Journal = Journal.NONE,
-                  llm: LLM | str = models["gemini-2.5-flash"],
+                  llm: LLM | str | None = None,
                   writer: str = 'scientist',
                   cmbagent_keywords: bool = False,
                   add_citations=True,
@@ -836,7 +850,8 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm)
+        llm_to_use = llm if llm is not None else self.llm
+        llm_to_use = self._llm_parser(llm_to_use)
 
         # Build graph
         graph = build_graph(mermaid_diagram=False)
@@ -844,9 +859,9 @@ class Denario:
         # Initialize the state
         input_state = {
             "files":{"Folder": self.project_dir}, #name of project folder
-            "llm": {"model": llm.name,  #name of the LLM model to use
-                    "temperature": llm.temperature,
-                    "max_output_tokens": llm.max_output_tokens},
+            "llm": {"model": llm_to_use.name,  #name of the LLM model to use
+                    "temperature": llm_to_use.temperature,
+                    "max_output_tokens": llm_to_use.max_output_tokens},
             "paper":{"journal": journal, "add_citations": add_citations,
                      "cmbagent_keywords": cmbagent_keywords},
             "keys": self.keys,
@@ -864,7 +879,7 @@ class Denario:
         print(f"Paper written in {minutes} min {seconds} sec.")    
 
     def referee(self,
-                llm: LLM | str = models["gemini-2.5-flash"],
+                llm: LLM | str | None = None,
                 verbose=False) -> None:
         """
         Review a paper, producing a report providing feedback on the quality of the articled and aspects to be improved.
@@ -879,7 +894,8 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
 
         # Get LLM instance
-        llm = self._llm_parser(llm, vllm_base_url=st.session_state.get('vllm_host_3'), ollama_host=st.session_state.get('ollama_host_3'))
+        llm_to_use = llm if llm is not None else self.llm
+        llm_to_use = self._llm_parser(llm_to_use)
 
         # Build graph
         graph = build_lg_graph(mermaid_diagram=False)
@@ -892,9 +908,9 @@ class Denario:
             "task": "referee",
             "files":{"Folder": self.project_dir,  #name of project folder
                      "data_description": f_data_description}, 
-            "llm": {"model": llm.name,                #name of the LLM model to use
-                    "temperature": llm.temperature,
-                    "max_output_tokens": llm.max_output_tokens,
+            "llm": {"model": llm_to_use.name,                #name of the LLM model to use
+                    "temperature": llm_to_use.temperature,
+                    "max_output_tokens": llm_to_use.max_output_tokens,
                     "stream_verbose": verbose,
                     "ollama_host": self.ollama_host},
             "keys": self.keys,
@@ -940,6 +956,7 @@ class Denario:
                 llm = models[llm]
             except KeyError:
                 raise KeyError(f"LLM '{llm}' not available. Please select from: {list(models.keys())}")
+
         if llm.model_type == "local":
             if llm.client == "vllm":
                 try:
@@ -949,7 +966,6 @@ class Denario:
                 base_url = vllm_base_url if vllm_base_url else self.vllm_base_url if self.vllm_base_url else "http://localhost:8000/v1"
                 llm._client = OpenAI(base_url=base_url)
             elif llm.client == "ollama":
-                # No client needed, will use requests directly
                 self.ollama_host = ollama_host if ollama_host else self.ollama_host if self.ollama_host else "http://localhost:11434"
         return llm
 
@@ -974,44 +990,228 @@ class Denario:
 
     def render_ui(self):
         """Render the Streamlit UI for the Denario application."""
-        st.title("Denario")
+        try:
+            st.set_page_config(layout="wide")
+        except st.errors.StreamlitAPIException:
+            # Most likely already set
+            pass
 
-        tab_names = ["Idea", "Methods", "Analysis", "Paper"]
-        tabs = st.tabs(tab_names)
+        with st.sidebar:
+            st.header("API keys")
+            st.write("Input OpenAI, Anthropic, Gemini and Perplexity API keys below.")
+            st.write("See [here](https://i-cog.github.io/denario/getting_started/keys/) for more information.")
+            with st.expander("Set API keys"):
+                self.keys.openai_api_key = st.text_input("OpenAI API Key", value=self.keys.openai_api_key or "", type="password")
+                self.keys.anthropic_api_key = st.text_input("Anthropic API Key", value=self.keys.anthropic_api_key or "", type="password")
+                self.keys.google_api_key = st.text_input("Google API Key", value=self.keys.google_api_key or "", type="password")
+                self.keys.perplexity_api_key = st.text_input("Perplexity API Key", value=self.keys.perplexity_api_key or "", type="password")
+                if st.button("Set Keys"):
+                    self.keys.set_keys_in_env()
+                    st.success("API keys set.")
 
-        for i, tab in enumerate(tabs):
-            with tab:
-                st.header(f"LLM Configuration for {tab_names[i]}")
-
-                llm_source = st.radio("Select LLM Source", ("External", "Local"), key=f"source_{i}")
+            st.header("LLM Configuration")
+            with st.expander("Set LLM"):
+                llm_source = st.radio("Select LLM Source", ("External", "Local"), key="source")
 
                 if llm_source == "External":
-                    model_name = st.selectbox("Select Model", options=list(models.keys()), key=f"model_{i}")
-                    st.session_state[f'llm_{i}'] = models[model_name]
+                    external_models = {k: v for k, v in models.items() if v.model_type != "local"}
+                    model_name = st.selectbox("Select Model", options=list(external_models.keys()), key="model")
+                    if model_name:
+                        self.set_llm(models[model_name])
+                        st.session_state['llm_name'] = model_name
 
                 else: # Local
                     col1, col2 = st.columns(2)
                     with col1:
-                        provider = st.selectbox("Select Provider", ("vLLM", "Ollama"), key=f"provider_{i}")
-                        ip = st.text_input("IP Address", "localhost", key=f"ip_{i}")
+                        provider = st.selectbox("Select Provider", ("vLLM", "Ollama"), key="provider")
+                        ip = st.text_input("IP Address", "localhost", key="ip")
                     with col2:
-                        port = st.text_input("Port", "8000" if provider == "vLLM" else "11434", key=f"port_{i}")
+                        port = st.text_input("Port", "8000" if provider == "vLLM" else "11434", key="port")
 
-                    if st.button("Fetch Models", key=f"fetch_{i}"):
+                    if st.button("Fetch Models", key="fetch"):
                         if provider == "vLLM":
                             url = f"http://{ip}:{port}/v1"
-                            st.session_state[f'vllm_host_{i}'] = url
-                            st.session_state[f'local_models_{i}'] = get_vllm_models(url)
+                            self.vllm_base_url = url
+                            st.session_state['local_models'] = get_vllm_models(url)
                         else: # Ollama
                             url = f"http://{ip}:{port}"
-                            st.session_state[f'ollama_host_{i}'] = url
-                            st.session_state[f'local_models_{i}'] = get_ollama_models(url)
+                            self.ollama_host = url
+                            st.session_state['local_models'] = get_ollama_models(url)
 
-                    if f'local_models_{i}' in st.session_state:
-                        model_name = st.selectbox("Select Model", options=st.session_state[f'local_models_{i}'], key=f"local_model_{i}")
-                        if model_name:
-                             st.session_state[f'llm_{i}'] = LLM(name=model_name,
-                                                               max_output_tokens=8192,
-                                                               temperature=0.7,
-                                                               model_type="local",
-                                                               client=provider.lower())
+                    if 'local_models' in st.session_state and st.session_state['local_models']:
+                        local_model_name = st.selectbox("Select Model", options=st.session_state['local_models'], key="local_model")
+                        if local_model_name:
+                            self.set_llm(LLM(name=local_model_name,
+                                                max_output_tokens=8192,
+                                                temperature=0.7,
+                                                model_type="local",
+                                                client=provider.lower()))
+                            st.session_state['llm_name'] = local_model_name
+                    elif 'local_models' in st.session_state:
+                        st.warning("No models found at the specified address.")
+
+            st.write(f"**Current LLM:** {self.llm.name}")
+
+
+            st.header("Upload data")
+            st.write("Upload the data files")
+            uploaded_files = st.file_uploader("Drag and drop files here", accept_multiple_files=True, label_visibility="collapsed", key="data_uploader")
+            if uploaded_files:
+                input_files_dir = os.path.join(self.project_dir, INPUT_FILES)
+                os.makedirs(input_files_dir, exist_ok=True)
+                for uploaded_file in uploaded_files:
+                    file_path = os.path.join(input_files_dir, uploaded_file.name)
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    st.success(f"File '{uploaded_file.name}' uploaded to '{input_files_dir}'.")
+
+            st.header("Download project")
+            zip_path = f"{self.project_dir}.zip"
+            # Create a zip of the project directory for download
+            shutil.make_archive(self.project_dir, 'zip', self.project_dir)
+            with open(zip_path, "rb") as fp:
+                st.download_button(
+                    label="Download all project files",
+                    data=fp,
+                    file_name=f"{os.path.basename(self.project_dir)}.zip",
+                    mime="application/zip"
+                )
+
+        st.title("Denario")
+        st.write("AI agents to assist the development of a scientific research process.")
+        st.write("From developing research ideas, developing methods, computing results and writing or reviewing papers.")
+        st.warning("This is a demo deployment of Denario on Hugging Face Spaces. Your session will expire if you close the tab or refresh the page. Recall to download your project files from the sidebar before leaving! ⚠️")
+
+        st.markdown(
+            "<span><a href='https://github.com/i-cog/denario' target='_blank'>Project Page</a> | <a href='https://i-cog.github.io/denario/' target='_blank'>Documentation</a> | <a href='https://github.com/i-cog/denario' target='_blank'>Code</a></span>",
+            unsafe_allow_html=True
+        )
+
+        tab_names = ["Input prompt", "Idea", "Methods", "Analysis", "Paper", "Literature review", "Referee report", "Keywords"]
+        tabs = st.tabs(tab_names)
+
+        with tabs[0]: # Input prompt
+            st.header("Input prompt")
+            st.write("Describe the data and tools to be used in the project. You may also include information about the computing resources required.")
+
+            if 'data_description' not in st.session_state:
+                try:
+                    with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
+                        st.session_state.data_description = f.read()
+                except FileNotFoundError:
+                    st.session_state.data_description = ""
+
+            data_description = st.text_area("E.g. Analyze the experimental data stored in /path/to/data.csv using sklearn and pandas. This data includes time-series measurements from a particle detector.",
+                                            value=st.session_state.data_description, height=200, label_visibility="collapsed")
+
+            if data_description != st.session_state.data_description:
+                st.session_state.data_description = data_description
+                self.set_data_description(data_description)
+                st.rerun()
+
+            st.write("Alternatively, upload a file with the data description in markdown format.")
+            uploaded_file = st.file_uploader("Drag and drop file here", type=['md'], label_visibility="collapsed", key="md_uploader")
+            if uploaded_file:
+                data_description_from_file = uploaded_file.read().decode("utf-8")
+                if data_description_from_file != st.session_state.data_description:
+                    st.session_state.data_description = data_description_from_file
+                    self.set_data_description(data_description_from_file)
+                    st.rerun()
+
+            with st.expander("Enhance Data Description Options"):
+                st.write("Select models to enhance the data description. The currently selected global LLM will be used by default.")
+
+                all_model_names = list(models.keys())
+
+                try:
+                    current_llm_index = all_model_names.index(self.llm.name)
+                except ValueError:
+                    current_llm_index = all_model_names.index('gpt-4o') if 'gpt-4o' in all_model_names else 0
+
+                summarizer_model_name = st.selectbox(
+                    "Summarizer Model",
+                    options=all_model_names,
+                    index=current_llm_index,
+                    key="summarizer_model"
+                )
+                formatter_model_name = st.selectbox(
+                    "Formatter Model",
+                    options=all_model_names,
+                    index=current_llm_index,
+                    key="formatter_model"
+                )
+
+                if st.button("Enhance Data Description"):
+                    if not self.research.data_description:
+                        st.error("Please provide a data description first.")
+                    else:
+                        with st.spinner("Enhancing data description..."):
+                            try:
+                                self.enhance_data_description(
+                                    summarizer_model=summarizer_model_name,
+                                    summarizer_response_formatter_model=formatter_model_name
+                                )
+                                st.success("Data description enhanced successfully.")
+                                st.session_state.data_description = self.research.data_description
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"An error occurred: {e}")
+
+            st.header("Current data description")
+            st.markdown(self.research.data_description or "Data description not set.")
+
+        with tabs[1]:
+            st.header("Idea")
+            if st.button("Generate Idea"):
+                with st.spinner("Generating idea..."):
+                    self.get_idea()
+                    st.rerun()
+            st.markdown(self.research.idea or "No idea generated yet.")
+
+        with tabs[2]:
+            st.header("Methods")
+            if st.button("Generate Methods"):
+                with st.spinner("Generating methods..."):
+                    self.get_method()
+                    st.rerun()
+            st.markdown(self.research.methodology or "No methods generated yet.")
+
+        with tabs[3]:
+            st.header("Analysis")
+            if st.button("Get Results"):
+                with st.spinner("Getting results..."):
+                    self.get_results()
+                    st.rerun()
+            st.markdown(self.research.results or "No results generated yet.")
+
+        with tabs[4]:
+            st.header("Paper")
+            if st.button("Generate Paper"):
+                with st.spinner("Generating paper..."):
+                    self.get_paper()
+                    st.rerun()
+            # Placeholder for paper content
+
+        with tabs[5]:
+            st.header("Literature review")
+            if st.button("Check Literature"):
+                with st.spinner("Checking literature..."):
+                    self.check_idea()
+                    st.rerun()
+            # Placeholder for literature review content
+
+        with tabs[6]:
+            st.header("Referee report")
+            if st.button("Generate Referee Report"):
+                with st.spinner("Generating referee report..."):
+                    self.referee()
+                    st.rerun()
+            # Placeholder for referee report content
+
+        with tabs[7]:
+            st.header("Keywords")
+            if st.button("Generate Keywords"):
+                with st.spinner("Generating keywords..."):
+                    self.get_keywords(self.research.idea + "\n" + self.research.methodology + "\n" + self.research.results)
+                    st.rerun()
+            self.show_keywords()

@@ -15,12 +15,13 @@ def LLM_call(prompt, state):
     """
     This function calls the LLM and update tokens
     """
+    prompt_content = prompt.content if hasattr(prompt, 'content') else prompt
 
     if state['llm']['llm'].model_type == 'local':
         if state['llm']['llm'].client == 'vllm':
             message = state['llm']['llm']._client.completions.create(
                 model=state['llm']['llm'].name,
-                prompt=prompt,
+                prompt=prompt_content,
                 max_tokens=state['llm']['max_output_tokens'],
                 temperature=state['llm']['temperature']
             )
@@ -32,7 +33,7 @@ def LLM_call(prompt, state):
                 f"{state['llm']['ollama_host']}/api/chat",
                 json={
                     "model": state['llm']['llm'].name,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [{"role": "user", "content": prompt_content}],
                     "stream": False,
                 },
             )
@@ -64,6 +65,7 @@ def LLM_call_stream(prompt, state):
     Also updates token usage tracking.
     """
     output_file_path = state['files']['f_stream']
+    prompt_content = prompt.content if hasattr(prompt, 'content') else prompt
 
     if state['llm']['llm'].model_type == 'local':
         full_content = ''
@@ -71,7 +73,7 @@ def LLM_call_stream(prompt, state):
             if state['llm']['llm'].client == 'vllm':
                 stream = state['llm']['llm']._client.completions.create(
                     model=state['llm']['llm'].name,
-                    prompt=prompt,
+                    prompt=prompt_content,
                     max_tokens=state['llm']['max_output_tokens'],
                     temperature=state['llm']['temperature'],
                     stream=True
@@ -84,13 +86,14 @@ def LLM_call_stream(prompt, state):
                         print(text, end='', flush=True)
                     full_content += text
             elif state['llm']['llm'].client == 'ollama':
+                payload = {
+                    "model": state['llm']['llm'].model_name,
+                    "messages": [{"role": "user", "content": prompt_content}],
+                    "stream": True,
+                }
                 response = requests.post(
                     f"{state['llm']['ollama_host']}/api/chat",
-                    json={
-                        "model": state['llm']['llm'].name,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "stream": True,
-                    },
+                    json=payload,
                     stream=True,
                 )
                 response.raise_for_status()

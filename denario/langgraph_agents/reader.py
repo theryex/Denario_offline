@@ -17,7 +17,9 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
 
     #########################################
     # set the LLM
-    if 'gemini' in state['llm']['model']:
+    if 'llm_obj' in state['llm']:
+        state['llm']['llm'] = state['llm']['llm_obj']
+    elif 'gemini' in state['llm']['model']:
         state['llm']['llm'] = ChatGoogleGenerativeAI(model=state['llm']['model'],
                                                 temperature=state['llm']['temperature'],
                                                 google_api_key=state["keys"].GEMINI)

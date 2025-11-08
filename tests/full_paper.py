@@ -1,6 +1,7 @@
-from denario import Denario, Journal
+from denario import Denario, Journal, models
 
 den = Denario()
+den.set_llm(models["ollama-llama3"])
 
 data_description = r"""
 Write a short paper on harmonic oscillators. Generate several plots. Generate some data, which should not take more than 3 minutes to generate. 
