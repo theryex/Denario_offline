@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from PIL import Image 
 import cmbagent
-
+from .llm import LLM, llm_parser # Make sure to import the new function
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
 from .key_manager import KeyManager
