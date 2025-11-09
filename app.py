@@ -50,8 +50,8 @@ def agent_model_selector(agent_role: str, defaults: dict, vllm_url: str, ollama_
 
 # --- Streamlit App ---
 
-st.set_page_config(layout="wide", page_title="Denario AI Research Pilot")
-st.title("🔬 Denario AI Research Pilot")
+st.set_page_config(layout="wide", page_title="Denario")
+st.title("Denario")
 
 # --- Initialize Denario in Session State ---
 if 'denario' not in st.session_state:
