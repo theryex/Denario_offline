@@ -15,19 +15,47 @@ def LLM_call(prompt, state):
     This function calls the LLM and update tokens
     """
 
-    message = state['llm']['llm'].invoke(prompt)
-    input_tokens  = message.usage_metadata['input_tokens']
-    output_tokens = message.usage_metadata['output_tokens']
-    if output_tokens>state['llm']['max_output_tokens']:
+    # Resolve the runnable LLM client from the state. The state['llm'] structure
+    # may be either:
+    # - a dict that contains a runtime client under key 'llm' (expected), or
+    # - already the runtime client object (rare), or
+    # - a higher-level LLM config object (missing runtime client).
+    llm_entry = state.get('llm')
+    if llm_entry is None:
+        raise KeyError("LLM entry missing from state. Ensure the graph preprocess node ran and attached an LLM client under state['llm']['llm'].")
+
+    # prefer the runtime client if available
+    runner = None
+    if isinstance(llm_entry, dict):
+        runner = llm_entry.get('llm') or llm_entry
+    else:
+        runner = llm_entry
+
+    # Runner must expose .invoke
+    if not hasattr(runner, 'invoke'):
+        raise KeyError("No runnable LLM client found at state['llm']['llm'] (object has no .invoke).")
+
+    message = runner.invoke(prompt)
+
+    # Safely read usage metadata
+    usage = getattr(message, 'usage_metadata', {}) or {}
+    input_tokens = usage.get('input_tokens', 0)
+    output_tokens = usage.get('output_tokens', 0)
+    max_output = None
+    if isinstance(llm_entry, dict):
+        max_output = llm_entry.get('max_output_tokens')
+
+    if max_output is not None and output_tokens > max_output:
         print('WARNING!! Max output tokens reach!')
+
     state['tokens']['ti'] += input_tokens
     state['tokens']['to'] += output_tokens
     state['tokens']['i'] = input_tokens
     state['tokens']['o'] = output_tokens
     with open(state['files']['LLM_calls'], 'a') as f:
         f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
-    
-    return state, message.content
+
+    return state, getattr(message, 'content', message)
 
 
 def LLM_call_stream(prompt, state):
@@ -36,34 +64,51 @@ def LLM_call_stream(prompt, state):
     Also updates token usage tracking.
     """
     output_file_path = state['files']['f_stream']
-    
+
+    # Resolve the runnable client (same logic as in LLM_call)
+    llm_entry = state.get('llm')
+    if llm_entry is None:
+        raise KeyError("LLM entry missing from state. Ensure preprocess_node attached an LLM client at state['llm']['llm'].")
+
+    if isinstance(llm_entry, dict):
+        runner = llm_entry.get('llm') or llm_entry
+        stream_verbose = llm_entry.get('stream_verbose', False)
+        max_output = llm_entry.get('max_output_tokens')
+    else:
+        runner = llm_entry
+        stream_verbose = getattr(llm_entry, 'stream_verbose', False)
+        max_output = getattr(llm_entry, 'max_output_tokens', None)
+
+    if not hasattr(runner, 'stream'):
+        raise KeyError("No streaming LLM client found at state['llm']['llm'] (object has no .stream).")
+
     # Start streaming and writing/printing immediately
     full_content = ''
     state['tokens']['i'] = 0
     state['tokens']['o'] = 0
-    with open(output_file_path, 'a') as f:
-        for chunk in state['llm']['llm'].stream(prompt):
-            text = chunk.content
+    with open(output_file_path, 'a', encoding='utf-8') as f:
+        for chunk in runner.stream(prompt):
+            # chunk may be a plain string or an object with .content
+            text = getattr(chunk, 'content', chunk)
             f.write(text)
             f.flush()  # Immediate file write
-            if state['llm']['stream_verbose']:
+            if stream_verbose:
                 print(text, end='', flush=True)  # Immediate terminal output
             full_content += text
 
-            # After streaming, get token usage
-            usage = chunk.usage_metadata if hasattr(chunk, 'usage_metadata') else None
-            if usage:
-                input_tokens = usage.get('input_tokens', 0)
-                output_tokens = usage.get('output_tokens', 0)
-                if output_tokens > state['llm']['max_output_tokens']:
-                    print('WARNING!! Max output tokens reached!')
+            # After streaming, get token usage if provided
+            usage = getattr(chunk, 'usage_metadata', None) or {}
+            input_tokens = usage.get('input_tokens', 0)
+            output_tokens = usage.get('output_tokens', 0)
+            if max_output is not None and output_tokens > max_output:
+                print('WARNING!! Max output tokens reached!')
 
-                state['tokens']['ti'] += input_tokens
-                state['tokens']['to'] += output_tokens
-                state['tokens']['i'] += input_tokens
-                state['tokens']['o'] += output_tokens
+            state['tokens']['ti'] += input_tokens
+            state['tokens']['to'] += output_tokens
+            state['tokens']['i'] += input_tokens
+            state['tokens']['o'] += output_tokens
         f.write('\n\n')
-    with open(state['files']['LLM_calls'], 'a') as f:
+    with open(state['files']['LLM_calls'], 'a', encoding='utf-8') as f:
         f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
 
     return state, full_content
