@@ -73,9 +73,11 @@ class Denario:
     def _setup_input_files(self) -> None:
         input_files_dir = os.path.join(self.project_dir, INPUT_FILES)
         
+        # If directory exists and want to clear it, remove it and all its contents
         if os.path.exists(input_files_dir) and self.clear_project_dir:
             shutil.rmtree(input_files_dir)
             
+        # Create fresh input_files directory
         os.makedirs(input_files_dir, exist_ok=True)
 
     def reset(self) -> None:
@@ -148,14 +150,10 @@ class Denario:
         else:
             print(content)
 
-    def show_data_description(self) -> None:
-        self.printer(self.research.data_description)
-    def show_idea(self) -> None:
-        self.printer(self.research.idea)
-    def show_method(self) -> None:
-        self.printer(self.research.methodology)
-    def show_results(self) -> None:
-        self.printer(self.research.results)
+    def show_data_description(self) -> None: self.printer(self.research.data_description)
+    def show_idea(self) -> None: self.printer(self.research.idea)
+    def show_method(self) -> None: self.printer(self.research.methodology)
+    def show_results(self) -> None: self.printer(self.research.results)
     def show_keywords(self) -> None:
         print(self.research.keywords)
         if isinstance(self.research.keywords, dict):
@@ -174,15 +172,14 @@ class Denario:
 
     def get_idea(self,
                  mode = "fast",
-                 llm: LLM | str | Dict = "gemini-2.0-flash", # <<< CHANGE
-                 idea_maker_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                 idea_hater_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                 planner_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                 plan_reviewer_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                 orchestration_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                 formatter_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                 llm: LLM | str | Dict = "gemini-2.0-flash",
+                 idea_maker_model: LLM | str | Dict = "gpt-4o",
+                 idea_hater_model: LLM | str | Dict = "o3-mini",
+                 planner_model: LLM | str | Dict = "gpt-4o",
+                 plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                 orchestration_model: LLM | str | Dict = "gpt-4.1",
+                 formatter_model: LLM | str | Dict = "o3-mini",
                 ) -> None:
-
         print(f"Generating idea with {mode} mode")
         if mode == "fast":
             self.get_idea_fast(llm=llm)
@@ -194,15 +191,13 @@ class Denario:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
 
     def get_idea_cmagent(self,
-                    idea_maker_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                    idea_hater_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                    planner_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                    plan_reviewer_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                    orchestration_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                    formatter_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                    idea_maker_model: LLM | str | Dict = "gpt-4o",
+                    idea_hater_model: LLM | str | Dict = "o3-mini",
+                    planner_model: LLM | str | Dict = "gpt-4o",
+                    plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                    orchestration_model: LLM | str | Dict = "gpt-4.1",
+                    formatter_model: LLM | str | Dict = "o3-mini",
                 ) -> None:
-        
-        # Get LLM instances using the CORRECT parser from .llm
         idea_maker_model = llm_parser(idea_maker_model)
         idea_hater_model = llm_parser(idea_hater_model)
         planner_model = llm_parser(planner_model)
@@ -210,43 +205,56 @@ class Denario:
         orchestration_model = llm_parser(orchestration_model)
         formatter_model = llm_parser(formatter_model)
         
-        if self.research.data_description == "":
+        if not self.research.data_description:
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
                 self.research.data_description = f.read()
 
-        idea = Idea(work_dir = self.project_dir, idea_maker_model = idea_maker_model.name,
-                    idea_hater_model = idea_hater_model.name, planner_model = planner_model.name,
-                    plan_reviewer_model = plan_reviewer_model.name, keys=self.keys,
-                    orchestration_model = orchestration_model.name, formatter_model = formatter_model.name)
+        idea_agent = Idea(work_dir=self.project_dir, idea_maker_model=idea_maker_model.name,
+                          idea_hater_model=idea_hater_model.name, planner_model=planner_model.name,
+                          plan_reviewer_model=plan_reviewer_model.name, keys=self.keys,
+                          orchestration_model=orchestration_model.name, formatter_model=formatter_model.name)
         
-        idea = idea.develop_idea(self.research.data_description)
-        self.research.idea = idea
+        idea_text = idea_agent.develop_idea(self.research.data_description)
+        self.research.idea = idea_text
         with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'w') as f:
-            f.write(idea)
-        self.idea = idea
+            f.write(idea_text)
+        self.idea = idea_text
 
     def get_idea_fast(self,
-                      llm: LLM | str | Dict = "gemini-2.0-flash", # <<< CHANGE
-                      iterations: int = 4, verbose=False) -> None:
-        
+                      llm: LLM | str | Dict = "gemini-2.0-flash",
+                      iterations: int = 4,
+                      verbose=False,
+                      ) -> None:
         start_time = time.time()
-        config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
-        llm = llm_parser(llm) # <<< Use the correct parser
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
+        llm = llm_parser(llm)
         graph = build_lg_graph(mermaid_diagram=False)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
-        input_state = { "task": "idea_generation", "files":{"Folder": self.project_dir, "data_description": f_data_description},
-                        "llm": {"model": llm.name, "temperature": llm.temperature, "max_output_tokens": llm.max_output_tokens, "stream_verbose": verbose},
-                        "keys": self.keys, "idea": {"total_iterations": iterations}, }
+
+        input_state = {
+            "task": "idea_generation",
+            "files": {"Folder": self.project_dir, "data_description": f_data_description},
+            "llm": {
+                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "model": llm.name,
+                "temperature": llm.temperature,
+                "max_output_tokens": llm.max_output_tokens,
+                "stream_verbose": verbose
+            },
+            "keys": self.keys,
+            "idea": {"total_iterations": iterations},
+        }
+        
         graph.invoke(input_state, config)
         end_time = time.time()
         elapsed_time = end_time - start_time
-        minutes = int(elapsed_time // 60)
-        seconds = int(elapsed_time % 60)
-        print(f"Idea generated in {minutes} min {seconds} sec.")
+        print(f"Idea generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
 
-    def check_idea(self, mode : str = 'semantic_scholar', llm: LLM | str | Dict = "gemini-2.5-flash", # <<< CHANGE
-                   max_iterations: int = 7, verbose=False) -> str:
-        
+    def check_idea(self,
+                   mode : str = 'semantic_scholar',
+                   llm: LLM | str | Dict = "gemini-2.5-flash",
+                   max_iterations: int = 7,
+                   verbose=False) -> str:
         print(f"Checking idea in literature with {mode} mode")
         if mode == 'futurehouse':
             return self.check_idea_futurehouse()
@@ -255,41 +263,82 @@ class Denario:
         else:
             raise ValueError("Mode must be either 'futurehouse' or 'semantic_scholar'")
     
-    # ... other methods like check_idea_futurehouse remain the same ...
-    
+    def check_idea_semantic_scholar(self,
+                        llm: LLM | str | Dict = "gemini-2.5-flash",
+                        max_iterations: int = 7,
+                        verbose=False,
+                        ) -> str:
+        start_time = time.time()
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
+        llm = llm_parser(llm)
+        graph = build_lg_graph(mermaid_diagram=False)
+        f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
+        f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
+
+        input_state = {
+            "task": "literature",
+            "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
+            "llm": {
+                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "model": llm.name,
+                "temperature": llm.temperature,
+                "max_output_tokens": llm.max_output_tokens,
+                "stream_verbose": verbose
+            },
+            "keys": self.keys,
+            "literature": {"max_iterations": max_iterations},
+            "idea": {"total_iterations": 4},
+        }
+        
+        try:
+            graph.invoke(input_state, config)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Literature checked in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
+        except Exception as e:
+            print(f'Denario failed to check literature. Error: {e}')
+            return "Error occurred during literature check"
+
+        try:
+            with open(os.path.join(self.project_dir, INPUT_FILES, LITERATURE_FILE), 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            return "Literature file not found"
+        
     def get_method(self,
                    mode = "fast",
-                   llm: LLM | str | Dict = "gemini-2.0-flash", # <<< CHANGE
-                   method_generator_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                   planner_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                   plan_reviewer_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                   orchestration_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                   formatter_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                   llm: LLM | str | Dict = "gemini-2.0-flash",
+                   method_generator_model: LLM | str | Dict = "gpt-4o",
+                   planner_model: LLM | str | Dict = "gpt-4o",
+                   plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                   orchestration_model: LLM | str | Dict = "gpt-4.1",
+                   formatter_model: LLM | str | Dict = "o3-mini",
                    verbose = False,
                    ) -> None:
-
         print(f"Generating methodology with {mode} mode")
         if mode == "fast":
             self.get_method_fast(llm=llm, verbose=verbose)
         elif mode == "cmbagent":
-            self.get_method_cmbagent(method_generator_model=method_generator_model, planner_model=planner_model,
-                                     plan_reviewer_model=plan_reviewer_model, orchestration_model=orchestration_model,
+            self.get_method_cmbagent(method_generator_model=method_generator_model,
+                                     planner_model=planner_model,
+                                     plan_reviewer_model=plan_reviewer_model,
+                                     orchestration_model=orchestration_model,
                                      formatter_model=formatter_model)
         else:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
 
     def get_method_cmbagent(self,
-                            method_generator_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                            planner_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                            plan_reviewer_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                            orchestration_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                            formatter_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                            method_generator_model: LLM | str | Dict = "gpt-4o",
+                            planner_model: LLM | str | Dict = "gpt-4o",
+                            plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                            orchestration_model: LLM | str | Dict = "gpt-4.1",
+                            formatter_model: LLM | str | Dict = "o3-mini",
                             ) -> None:
-
-        if self.research.data_description == "":
+        
+        if not self.research.data_description:
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
                 self.research.data_description = f.read()        
-        if self.research.idea == "":
+        if not self.research.idea:
             with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'r') as f:
                 self.research.idea = f.read()
 
@@ -309,20 +358,50 @@ class Denario:
         with open(os.path.join(self.project_dir, INPUT_FILES, METHOD_FILE), 'w') as f:
             f.write(methodology)
 
+    def get_method_fast(self,
+                        llm: LLM | str | Dict = "gemini-2.0-flash",
+                        verbose=False,
+                        ) -> None:
+        start_time = time.time()
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
+        llm = llm_parser(llm)
+        graph = build_lg_graph(mermaid_diagram=False)
+        f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
+        f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
+        
+        input_state = {
+            "task": "methods_generation",
+            "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
+            "llm": {
+                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "model": llm.name,
+                "temperature": llm.temperature,
+                "max_output_tokens": llm.max_output_tokens,
+                "stream_verbose": verbose
+            },
+            "keys": self.keys,
+            "idea": {"total_iterations": 4},
+        }
+        
+        graph.invoke(input_state, config)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Methods generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")  
+
     def get_results(self,
                     involved_agents: List[str] = ['engineer', 'researcher'],
-                    engineer_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                    researcher_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                    engineer_model: LLM | str | Dict = "gpt-4.1",
+                    researcher_model: LLM | str | Dict = "o3-mini",
                     restart_at_step: int = -1,
                     hardware_constraints: str | None = None,
-                    planner_model: LLM | str | Dict = "gpt-4o", # <<< CHANGE
-                    plan_reviewer_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
-                    max_n_attempts: int = 10, max_n_steps: int = 6,   
-                    orchestration_model: LLM | str | Dict = "gpt-4.1", # <<< CHANGE
-                    formatter_model: LLM | str | Dict = "o3-mini", # <<< CHANGE
+                    planner_model: LLM | str | Dict = "gpt-4o",
+                    plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                    max_n_attempts: int = 10,
+                    max_n_steps: int = 6,   
+                    orchestration_model: LLM | str | Dict = "gpt-4.1",
+                    formatter_model: LLM | str | Dict = "o3-mini",
                     ) -> None:
 
-        # Get LLM instances
         engineer_model = llm_parser(engineer_model)
         researcher_model = llm_parser(researcher_model)
         planner_model = llm_parser(planner_model)
@@ -330,29 +409,110 @@ class Denario:
         orchestration_model = llm_parser(orchestration_model)
         formatter_model = llm_parser(formatter_model)
 
-        # ... rest of the function logic ...
+        if not self.research.data_description:
+            with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
+                self.research.data_description = f.read()
+        if not self.research.idea:
+            with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'r') as f:
+                self.research.idea = f.read()
+        if not self.research.methodology:
+            with open(os.path.join(self.project_dir, INPUT_FILES, METHOD_FILE), 'r') as f:
+                self.research.methodology = f.read()
+
+        experiment = Experiment(research_idea=self.research.idea,
+                                methodology=self.research.methodology,
+                                involved_agents=involved_agents,
+                                engineer_model=engineer_model.name,
+                                researcher_model=researcher_model.name,
+                                planner_model=planner_model.name,
+                                plan_reviewer_model=plan_reviewer_model.name,
+                                work_dir = self.project_dir,
+                                keys=self.keys,
+                                restart_at_step = restart_at_step,
+                                hardware_constraints = hardware_constraints,
+                                max_n_attempts=max_n_attempts,
+                                max_n_steps=max_n_steps,
+                                orchestration_model = orchestration_model.name,
+                                formatter_model = formatter_model.name)
+        
+        experiment.run_experiment(self.research.data_description)
+        self.research.results = experiment.results
+        self.research.plot_paths = experiment.plot_paths
+
+        if os.path.exists(self.plots_folder):
+            for file in os.listdir(self.plots_folder):
+                file_path = os.path.join(self.plots_folder, file)
+                if os.path.isfile(file_path): os.remove(file_path)
+                elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        for plot_path in self.research.plot_paths:
+            shutil.move(plot_path, self.plots_folder)
+
+        with open(os.path.join(self.project_dir, INPUT_FILES, RESULTS_FILE), 'w') as f:
+            f.write(self.research.results)
     
-    # ... other methods like get_keywords ...
+    def get_keywords(self, input_text: str, n_keywords: int = 5, kw_type: str = 'unesco') -> None:
+        keywords = cmbagent.get_keywords(input_text, n_keywords=n_keywords, kw_type=kw_type, api_keys=self.keys)
+        self.research.keywords = keywords
+        print('keywords: ', self.research.keywords)
 
     def get_paper(self,
                   journal: Journal = Journal.NONE,
-                  llm: LLM | str | Dict = "gemini-2.5-flash", # <<< CHANGE
+                  llm: LLM | str | Dict = "gemini-2.5-flash",
                   writer: str = 'scientist',
-                  cmbagent_keywords: bool = False, add_citations=True) -> None:
-        
+                  cmbagent_keywords: bool = False,
+                  add_citations=True,
+                  ) -> None:
         start_time = time.time()
-        config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
-        llm = llm_parser(llm) # <<< Use the correct parser
-        # ... rest of the function logic ...
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
+        llm = llm_parser(llm)
+        graph = build_graph(mermaid_diagram=False)
+        input_state = {
+            "files": {"Folder": self.project_dir},
+            "llm": {
+                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "model": llm.name,
+                "temperature": llm.temperature,
+                "max_output_tokens": llm.max_output_tokens
+            },
+            "paper": {"journal": journal, "add_citations": add_citations, "cmbagent_keywords": cmbagent_keywords},
+            "keys": self.keys,
+            "writer": writer,
+        }
+        asyncio.run(graph.ainvoke(input_state, config))
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Paper written in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")    
 
     def referee(self,
-                llm: LLM | str | Dict = "gemini-2.5-flash", # <<< CHANGE
+                llm: LLM | str | Dict = "gemini-2.5-flash",
                 verbose=False) -> None:
-        
         start_time = time.time()
-        config = {"configurable": {"thread_id": "1"}, "recursion_limit":100}
-        llm = llm_parser(llm) # <<< Use the correct parser
-        # ... rest of the function logic ...
+        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
+        llm = llm_parser(llm)
+        graph = build_lg_graph(mermaid_diagram=False)
+        f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
+
+        input_state = {
+            "task": "referee",
+            "files": {"Folder": self.project_dir, "data_description": f_data_description},
+            "llm": {
+                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "model": llm.name,
+                "temperature": llm.temperature,
+                "max_output_tokens": llm.max_output_tokens,
+                "stream_verbose": verbose
+            },
+            "keys": self.keys,
+            "referee": {"paper_version": 2},
+        }
+        
+        try:
+            graph.invoke(input_state, config)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"Paper reviewed in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
+        except FileNotFoundError as e:
+            print(f'Denario failed to provide a review. Ensure a paper exists. Error: {e}')
         
     def research_pilot(self, data_description: str | None = None) -> None:
         """Full run of Denario. It calls the following methods sequentially:
