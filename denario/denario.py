@@ -1,4 +1,6 @@
-from typing import List, Dict
+# Save this file as denario.py inside your denario/ directory
+
+from typing import List, Dict, Union # Added Union for type hints
 import asyncio
 import time
 import os
@@ -7,6 +9,8 @@ from pathlib import Path
 from PIL import Image 
 import cmbagent
 
+# --- Corrected Imports ---
+# Ensure these imports are correct for your project structure
 from .llm import LLM, models, llm_parser 
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
@@ -22,11 +26,11 @@ from cmbagent import preprocess_task
 
 class Denario:
     """
-    Denario main class. Allows to set the data and tools description, generate a research idea, generate methodology and compute the results. The it can generate the latex draft of a scientific article with a given journal style from the computed results.
+    Denario main class. Allows to set the data and tools description, generate a research idea, generate methodology and compute the results. Then it can generate the latex draft of a scientific article with a given journal style from the computed results.
     
     It uses two main backends:
 
-    - `cmbagent`,  for detailed planning and control involving numerous agents for the idea, methods and results generation.
+    - `cmbagent`, for detailed planning and control involving numerous agents for the idea, methods and results generation.
     - `langgraph`, for faster idea and method generation, and for the paper writing.
 
     Args:
@@ -47,7 +51,7 @@ class Denario:
             os.mkdir(project_dir)
 
         if research is None:
-            research = Research()  # Initialize with default values
+            research = Research()
         self.research = research
         self.clear_project_dir = clear_project_dir
 
@@ -57,53 +61,37 @@ class Denario:
         self.project_dir = project_dir
 
         self.plots_folder = os.path.join(self.project_dir, INPUT_FILES, PLOTS_FOLDER)
-        # Ensure the folder exists
         os.makedirs(self.plots_folder, exist_ok=True)
-
         self._setup_input_files()
 
-        # Get keys from environment if they exist
         self.keys = KeyManager()
         self.keys.get_keys_from_env()
-
         self.run_in_notebook = in_notebook()
-
         self.set_all()
 
     def _setup_input_files(self) -> None:
         input_files_dir = os.path.join(self.project_dir, INPUT_FILES)
-        
-        # If directory exists and want to clear it, remove it and all its contents
         if os.path.exists(input_files_dir) and self.clear_project_dir:
             shutil.rmtree(input_files_dir)
-            
-        # Create fresh input_files directory
         os.makedirs(input_files_dir, exist_ok=True)
 
     def reset(self) -> None:
         """Reset Research object"""
-
         self.research = Research()
 
     #---
     # Setters
     #---
-
     def setter(self, field: str | None, file: str) -> str:
-        """Base method for setting the content of idea, method or results."""
-
         if field is None:
             try:
                 with open(os.path.join(self.project_dir, INPUT_FILES, file), 'r') as f:
                     field = f.read()
             except FileNotFoundError:
                 raise FileNotFoundError("Please provide an input string or path to a markdown file.")
-
         field = input_check(field)
-                
         with open(os.path.join(self.project_dir, INPUT_FILES, file), 'w') as f:
             f.write(field)
-
         return field
 
     def set_data_description(self, data_description: str | None = None) -> None:
@@ -123,14 +111,14 @@ class Denario:
         if plots is None:
             plots = [str(p) for p in (Path(self.project_dir) / "input_files" / "Plots").glob("*.png")]
         for i, plot in enumerate(plots):
-            if isinstance(plot,str):
-                plot_path= Path(plot)
+            if isinstance(plot, str):
+                plot_path = Path(plot)
                 img = Image.open(plot_path)
                 plot_name = str(plot_path.name)
             else:
                 img = plot
                 plot_name = f"plot_{i}.png"
-            img.save( os.path.join(self.project_dir, INPUT_FILES, PLOTS_FOLDER, plot_name) )
+            img.save(os.path.join(self.project_dir, INPUT_FILES, PLOTS_FOLDER, plot_name))
 
     def set_all(self) -> None:
         for setter in (self.set_data_description, self.set_idea, self.set_method, self.set_results, self.set_plots):
@@ -142,7 +130,6 @@ class Denario:
     #---
     # Printers
     #---
-
     def printer(self, content: str) -> None:
         if self.run_in_notebook:
             from IPython.display import display, Markdown
@@ -156,22 +143,18 @@ class Denario:
     def show_results(self) -> None: self.printer(self.research.results)
     def show_keywords(self) -> None:
         print(self.research.keywords)
-        if isinstance(self.research.keywords, dict):
-            keyword_list = "\n".join([f"- [{keyword}]({self.research.keywords[keyword]})" for keyword in self.research.keywords])
-        else:
-            keyword_list = "\n".join([f"- {keyword}" for keyword in self.research.keywords])
+        keyword_list = "\n".join([f"- [{k}]({v})" for k, v in self.research.keywords.items()]) if isinstance(self.research.keywords, dict) else "\n".join([f"- {k}" for k in self.research.keywords])
         self.printer(keyword_list)
 
     #---
     # Generative modules
     #---
-
     def enhance_data_description(self, summarizer_model: str, summarizer_response_formatter_model: str) -> None:
         # This method's logic remains the same.
         pass
 
     def get_idea(self,
-                 mode = "fast",
+                 mode: str = "fast",
                  llm: LLM | str | Dict = "gemini-2.0-flash",
                  idea_maker_model: LLM | str | Dict = "gpt-4o",
                  idea_hater_model: LLM | str | Dict = "o3-mini",
@@ -191,24 +174,24 @@ class Denario:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
 
     def get_idea_cmagent(self,
-                    idea_maker_model: LLM | str | Dict = "gpt-4o",
-                    idea_hater_model: LLM | str | Dict = "o3-mini",
-                    planner_model: LLM | str | Dict = "gpt-4o",
-                    plan_reviewer_model: LLM | str | Dict = "o3-mini",
-                    orchestration_model: LLM | str | Dict = "gpt-4.1",
-                    formatter_model: LLM | str | Dict = "o3-mini",
-                ) -> None:
+                         idea_maker_model: LLM | str | Dict = "gpt-4o",
+                         idea_hater_model: LLM | str | Dict = "o3-mini",
+                         planner_model: LLM | str | Dict = "gpt-4o",
+                         plan_reviewer_model: LLM | str | Dict = "o3-mini",
+                         orchestration_model: LLM | str | Dict = "gpt-4.1",
+                         formatter_model: LLM | str | Dict = "o3-mini",
+                         ) -> None:
         idea_maker_model = llm_parser(idea_maker_model)
         idea_hater_model = llm_parser(idea_hater_model)
         planner_model = llm_parser(planner_model)
         plan_reviewer_model = llm_parser(plan_reviewer_model)
         orchestration_model = llm_parser(orchestration_model)
         formatter_model = llm_parser(formatter_model)
-        
+
         if not self.research.data_description:
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
                 self.research.data_description = f.read()
-
+        
         idea_agent = Idea(work_dir=self.project_dir, idea_maker_model=idea_maker_model.name,
                           idea_hater_model=idea_hater_model.name, planner_model=planner_model.name,
                           plan_reviewer_model=plan_reviewer_model.name, keys=self.keys,
@@ -231,11 +214,12 @@ class Denario:
         graph = build_lg_graph(mermaid_diagram=False)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
 
+        # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {
             "task": "idea_generation",
             "files": {"Folder": self.project_dir, "data_description": f_data_description},
             "llm": {
-                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "llm": llm,  # <<< Pass the entire LLM object here
                 "model": llm.name,
                 "temperature": llm.temperature,
                 "max_output_tokens": llm.max_output_tokens,
@@ -244,14 +228,13 @@ class Denario:
             "keys": self.keys,
             "idea": {"total_iterations": iterations},
         }
-        
         graph.invoke(input_state, config)
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Idea generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
 
     def check_idea(self,
-                   mode : str = 'semantic_scholar',
+                   mode: str = 'semantic_scholar',
                    llm: LLM | str | Dict = "gemini-2.5-flash",
                    max_iterations: int = 7,
                    verbose=False) -> str:
@@ -275,11 +258,12 @@ class Denario:
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
 
+        # <<< FIX: Ensure 'llm' key holds the LLM object.
         input_state = {
             "task": "literature",
             "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
             "llm": {
-                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "llm": llm,  # <<< Pass the entire LLM object here
                 "model": llm.name,
                 "temperature": llm.temperature,
                 "max_output_tokens": llm.max_output_tokens,
@@ -304,25 +288,23 @@ class Denario:
                 return f.read()
         except FileNotFoundError:
             return "Literature file not found"
-        
+
     def get_method(self,
-                   mode = "fast",
+                   mode: str = "fast",
                    llm: LLM | str | Dict = "gemini-2.0-flash",
                    method_generator_model: LLM | str | Dict = "gpt-4o",
                    planner_model: LLM | str | Dict = "gpt-4o",
                    plan_reviewer_model: LLM | str | Dict = "o3-mini",
                    orchestration_model: LLM | str | Dict = "gpt-4.1",
                    formatter_model: LLM | str | Dict = "o3-mini",
-                   verbose = False,
+                   verbose=False,
                    ) -> None:
         print(f"Generating methodology with {mode} mode")
         if mode == "fast":
             self.get_method_fast(llm=llm, verbose=verbose)
         elif mode == "cmbagent":
-            self.get_method_cmbagent(method_generator_model=method_generator_model,
-                                     planner_model=planner_model,
-                                     plan_reviewer_model=plan_reviewer_model,
-                                     orchestration_model=orchestration_model,
+            self.get_method_cmbagent(method_generator_model=method_generator_model, planner_model=planner_model,
+                                     plan_reviewer_model=plan_reviewer_model, orchestration_model=orchestration_model,
                                      formatter_model=formatter_model)
         else:
             raise ValueError("Mode must be either 'fast' or 'cmbagent'")
@@ -334,7 +316,6 @@ class Denario:
                             orchestration_model: LLM | str | Dict = "gpt-4.1",
                             formatter_model: LLM | str | Dict = "o3-mini",
                             ) -> None:
-        
         if not self.research.data_description:
             with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
                 self.research.data_description = f.read()        
@@ -369,11 +350,12 @@ class Denario:
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
         
+        # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {
             "task": "methods_generation",
             "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
             "llm": {
-                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "llm": llm,  # <<< Pass the entire LLM object here
                 "model": llm.name,
                 "temperature": llm.temperature,
                 "max_output_tokens": llm.max_output_tokens,
@@ -382,11 +364,10 @@ class Denario:
             "keys": self.keys,
             "idea": {"total_iterations": 4},
         }
-        
         graph.invoke(input_state, config)
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"Methods generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")  
+        print(f"Methods generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
 
     def get_results(self,
                     involved_agents: List[str] = ['engineer', 'researcher'],
@@ -396,12 +377,10 @@ class Denario:
                     hardware_constraints: str | None = None,
                     planner_model: LLM | str | Dict = "gpt-4o",
                     plan_reviewer_model: LLM | str | Dict = "o3-mini",
-                    max_n_attempts: int = 10,
-                    max_n_steps: int = 6,   
+                    max_n_attempts: int = 10, max_n_steps: int = 6,   
                     orchestration_model: LLM | str | Dict = "gpt-4.1",
                     formatter_model: LLM | str | Dict = "o3-mini",
                     ) -> None:
-
         engineer_model = llm_parser(engineer_model)
         researcher_model = llm_parser(researcher_model)
         planner_model = llm_parser(planner_model)
@@ -419,21 +398,13 @@ class Denario:
             with open(os.path.join(self.project_dir, INPUT_FILES, METHOD_FILE), 'r') as f:
                 self.research.methodology = f.read()
 
-        experiment = Experiment(research_idea=self.research.idea,
-                                methodology=self.research.methodology,
-                                involved_agents=involved_agents,
-                                engineer_model=engineer_model.name,
-                                researcher_model=researcher_model.name,
-                                planner_model=planner_model.name,
-                                plan_reviewer_model=plan_reviewer_model.name,
-                                work_dir = self.project_dir,
-                                keys=self.keys,
-                                restart_at_step = restart_at_step,
-                                hardware_constraints = hardware_constraints,
-                                max_n_attempts=max_n_attempts,
-                                max_n_steps=max_n_steps,
-                                orchestration_model = orchestration_model.name,
-                                formatter_model = formatter_model.name)
+        experiment = Experiment(research_idea=self.research.idea, methodology=self.research.methodology,
+                                involved_agents=involved_agents, engineer_model=engineer_model.name,
+                                researcher_model=researcher_model.name, planner_model=planner_model.name,
+                                plan_reviewer_model=plan_reviewer_model.name, work_dir=self.project_dir, keys=self.keys,
+                                restart_at_step=restart_at_step, hardware_constraints=hardware_constraints,
+                                max_n_attempts=max_n_attempts, max_n_steps=max_n_steps,
+                                orchestration_model=orchestration_model.name, formatter_model=formatter_model.name)
         
         experiment.run_experiment(self.research.data_description)
         self.research.results = experiment.results
@@ -451,8 +422,8 @@ class Denario:
             f.write(self.research.results)
     
     def get_keywords(self, input_text: str, n_keywords: int = 5, kw_type: str = 'unesco') -> None:
-        keywords = cmbagent.get_keywords(input_text, n_keywords=n_keywords, kw_type=kw_type, api_keys=self.keys)
-        self.research.keywords = keywords
+        keywords = cmbagent.get_keywords(input_text, n_keywords = n_keywords, kw_type = kw_type, api_keys = self.keys)
+        self.research.keywords = keywords # type: ignore
         print('keywords: ', self.research.keywords)
 
     def get_paper(self,
@@ -466,15 +437,16 @@ class Denario:
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
         llm = llm_parser(llm)
         graph = build_graph(mermaid_diagram=False)
+
         input_state = {
-            "files": {"Folder": self.project_dir},
+            "files":{"Folder": self.project_dir},
             "llm": {
                 "llm": llm,  # <<< FIX: Pass the entire LLM object here
                 "model": llm.name,
                 "temperature": llm.temperature,
                 "max_output_tokens": llm.max_output_tokens
             },
-            "paper": {"journal": journal, "add_citations": add_citations, "cmbagent_keywords": cmbagent_keywords},
+            "paper":{"journal": journal, "add_citations": add_citations, "cmbagent_keywords": cmbagent_keywords},
             "keys": self.keys,
             "writer": writer,
         }
@@ -492,11 +464,12 @@ class Denario:
         graph = build_lg_graph(mermaid_diagram=False)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
 
+        # <<< FIX: Ensure 'llm' key holds the LLM object.
         input_state = {
             "task": "referee",
             "files": {"Folder": self.project_dir, "data_description": f_data_description},
             "llm": {
-                "llm": llm,  # <<< FIX: Pass the entire LLM object here
+                "llm": llm,  # <<< Pass the entire LLM object here
                 "model": llm.name,
                 "temperature": llm.temperature,
                 "max_output_tokens": llm.max_output_tokens,
@@ -512,7 +485,7 @@ class Denario:
             elapsed_time = end_time - start_time
             print(f"Paper reviewed in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
         except FileNotFoundError as e:
-            print(f'Denario failed to provide a review. Ensure a paper exists. Error: {e}')
+            print('Denario failed to provide a review. Ensure a paper exists. Error: {e}')
         
     def research_pilot(self, data_description: str | None = None) -> None:
         """Full run of Denario. It calls the following methods sequentially:
