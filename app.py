@@ -1,9 +1,13 @@
+# Save this file as app.py in your project's root folder (e.g., Denario_offline/app.py)
+
 import streamlit as st
 import requests
-from denario import Denario # Assuming your class is in denario/__init__.py or denario/denario.py
 
-# --- API Communication Functions (from our previous script) ---
+# This is now an ABSOLUTE import from the 'denario' package
+from denario.denario import Denario 
+from denario.llm import models as predefined_models
 
+# --- API Communication Functions ---
 @st.cache_data(ttl=300)
 def get_vllm_models(api_url):
     try:
@@ -11,6 +15,7 @@ def get_vllm_models(api_url):
         response.raise_for_status()
         return [model["id"] for model in response.json().get("data", [])]
     except requests.exceptions.RequestException:
+        st.sidebar.warning(f"vLLM server not found at {api_url}")
         return []
 
 @st.cache_data(ttl=300)
@@ -20,114 +25,77 @@ def get_ollama_models(api_url):
         response.raise_for_status()
         return [model["name"] for model in response.json().get("models", [])]
     except requests.exceptions.RequestException:
+        st.sidebar.warning(f"Ollama server not found at {api_url}")
         return []
 
-# --- UI Helper Function ---
-
-def agent_model_selector(agent_role: str, defaults: dict, vllm_url: str, ollama_url: str):
-    """Creates a set of widgets in the sidebar for a specific agent role."""
-    st.subheader(agent_role)
-    provider = st.selectbox("Provider", ["vLLM", "Ollama"], key=f"{agent_role}_provider")
-    
-    api_base = vllm_url if provider == 'vLLM' else ollama_url
-    models = get_vllm_models(vllm_url) if provider == 'vLLM' else get_ollama_models(ollama_url)
-    
-    model = st.selectbox("Model", models, key=f"{agent_role}_model")
-    
-    st.slider("Temperature", 0.0, 1.0, defaults['temp'], 0.05, key=f"{agent_role}_temp")
-    st.slider("Max Tokens", 50, 8000, defaults['tokens'], key=f"{agent_role}_max")
-    st.slider("Repetition Penalty", 0.0, 2.0, defaults['penalty'], 0.05, key=f"{agent_role}_penalty")
-
-    # Return a dictionary that can be passed to llm_parser
-    return {
-        "provider": provider,
-        "api_base": api_base,
-        "model": model,
-        "temperature": st.session_state[f"{agent_role}_temp"],
-        "max_tokens": st.session_state[f"{agent_role}_max"],
-        "repetition_penalty": st.session_state[f"{agent_role}_penalty"]
-    }
-
-# --- Streamlit App ---
-
+# --- Main Application ---
 st.set_page_config(layout="wide", page_title="Denario")
 st.title("Denario")
+# (Your other introductory text and UI elements can go here)
 
-# --- Initialize Denario in Session State ---
 if 'denario' not in st.session_state:
-    # Initialize Denario with a project directory. Clear it for fresh runs.
     st.session_state.denario = Denario(project_dir="denario_project", clear_project_dir=True)
     st.toast("Denario instance created!")
 
-# --- Sidebar for Configuration ---
+# --- Sidebar Configuration ---
 with st.sidebar:
-    st.header("API Endpoints")
-    vllm_base_url = st.text_input("vLLM Base URL", "http://localhost:8000")
-    ollama_base_url = st.text_input("Ollama Base URL", "http://localhost:11434")
-    st.markdown("---")
+    st.header("Denario")
+    with st.expander("Local Model Endpoints"):
+        vllm_base_url = st.text_input("vLLM Base URL", "http://localhost:8000")
+        ollama_base_url = st.text_input("Ollama Base URL", "http://localhost:11434")
     
-    st.header("Agent Model Configuration")
-    
-    with st.expander("Idea Generation Agents", expanded=True):
-        idea_maker_config = agent_model_selector("Idea Maker", {'temp': 0.7, 'tokens': 2048, 'penalty': 1.1}, vllm_base_url, ollama_base_url)
-        idea_hater_config = agent_model_selector("Idea Hater", {'temp': 0.8, 'tokens': 2048, 'penalty': 1.2}, vllm_base_url, ollama_base_url)
-    
-    with st.expander("Methodology Agents"):
-        method_gen_config = agent_model_selector("Method Generator", {'temp': 0.6, 'tokens': 3000, 'penalty': 1.1}, vllm_base_url, ollama_base_url)
-        
-    with st.expander("Results Agents (Engineer)"):
-        engineer_config = agent_model_selector("Engineer", {'temp': 0.3, 'tokens': 4096, 'penalty': 1.0}, vllm_base_url, ollama_base_url)
+    # (Your other sidebar items like API Keys, Upload Data, etc.)
+    # ...
 
-    with st.expander("Paper Writing Agent"):
-        paper_writer_config = agent_model_selector("Paper Writer", {'temp': 0.7, 'tokens': 4096, 'penalty': 1.15}, vllm_base_url, ollama_base_url)
+# --- Create the merged dictionary of all models ---
+all_available_models = {}
+all_available_models["[Cloud] gpt-4o"] = "gpt-4o" # Example, add more as needed
+for model_name in predefined_models.keys():
+    all_available_models[f"[Cloud] {model_name}"] = model_name
 
+for model_name in get_vllm_models(vllm_base_url):
+    display_name = f"[vLLM] {model_name.split('/')[-1]}"
+    all_available_models[display_name] = {"provider": "vLLM", "api_base": vllm_base_url, "model": model_name}
 
-# --- Main Application Flow ---
+for model_name in get_ollama_models(ollama_base_url):
+    display_name = f"[Ollama] {model_name.split(':')[0]}"
+    all_available_models[display_name] = {"provider": "Ollama", "api_base": ollama_base_url, "model": model_name}
 
-st.header("1. Data and Tools Description")
-data_desc = st.text_area("Provide a detailed description of the data, tools, and libraries to be used for the research.", height=200, key="data_description")
-if st.button("Set Data Description"):
-    if data_desc:
+# --- Main UI with Tabs ---
+tab_names = ["Input prompt", "Idea", "Methods", "Analysis", "Paper", "Literature review", "Referee report", "Keywords"]
+input_tab, idea_tab, methods_tab, analysis_tab, paper_tab, lit_tab, referee_tab, keywords_tab = st.tabs(tab_names)
+
+with input_tab:
+    st.header("Input prompt")
+    data_desc = st.text_area("Describe the data and tools...", height=200)
+    if st.button("Set Data Description"):
         st.session_state.denario.set_data_description(data_desc)
-        st.success("Data description has been set and saved.")
-    else:
-        st.warning("Please provide a data description.")
+        st.success("Data description set!")
+    # ... your file upload logic ...
 
-st.markdown("---")
+with idea_tab:
+    st.header("Generate an Idea")
+    st.subheader("Idea Generation Models")
+    
+    idea_maker_display_name = st.selectbox("Select Idea Maker Model", options=list(all_available_models.keys()), key="idea_maker_select")
+    idea_hater_display_name = st.selectbox("Select Idea Hater Model", options=list(all_available_models.keys()), key="idea_hater_select", index=1 if len(all_available_models) > 1 else 0)
 
-st.header("2. Generate Research Idea")
-if st.button("Generate Idea"):
-    with st.spinner("Agents are brainstorming..."):
-        try:
-            # Here we pass the configuration dictionaries directly
+    idea_maker_config = all_available_models[idea_maker_display_name]
+    idea_hater_config = all_available_models[idea_hater_display_name]
+    
+    if st.button("Generate Idea"):
+        with st.spinner("Agents are brainstorming..."):
             st.session_state.denario.get_idea_cmagent(
                 idea_maker_model=idea_maker_config,
                 idea_hater_model=idea_hater_config
-                # Add other planner/orchestrator models if you want to configure them too
             )
-            st.success("Idea generated successfully!")
-            st.session_state.idea = st.session_state.denario.research.idea
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.success("Idea generated!")
+            if hasattr(st.session_state.denario.research, 'idea'):
+                st.session_state.idea = st.session_state.denario.research.idea
+            st.rerun()
 
-if 'idea' in st.session_state:
-    with st.expander("View Generated Idea", expanded=True):
+    if 'idea' in st.session_state:
+        st.markdown("### Generated Idea:")
         st.markdown(st.session_state.idea)
 
-st.markdown("---")
-
-st.header("3. Generate Methodology")
-if st.button("Generate Method"):
-    with st.spinner("Methodology agent at work..."):
-        try:
-            st.session_state.denario.get_method_cmbagent(
-                method_generator_model=method_gen_config
-            )
-            st.success("Methodology generated!")
-            st.session_state.method = st.session_state.denario.research.methodology
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-
-if 'method' in st.session_state:
-    with st.expander("View Generated Method"):
-        st.markdown(st.session_state.method)
+# ... (Continue building out your other tabs in the same way) ...
