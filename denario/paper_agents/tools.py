@@ -91,9 +91,10 @@ def LLM_call_stream(prompt, state):
         max_output = getattr(llm_entry, 'max_output_tokens', None)
 
 
-    # If the runner doesn't support streaming, attempt fallback methods
-    if not hasattr(runner, 'stream'):
-        # First try using synchronous LLM_call if .invoke is available
+    # Special handling for vLLM/Ollama clients or when streaming is not available
+    if getattr(runner, 'is_vllm', False) or getattr(runner, 'is_ollama', False) or not hasattr(runner, 'stream'):
+        print("DEBUG: Using non-streaming fallback for vLLM/Ollama client or non-streaming client")
+        # First try synchronous LLM_call if .invoke is available
         if hasattr(runner, 'invoke'):
             try:
                 return LLM_call(prompt, state)

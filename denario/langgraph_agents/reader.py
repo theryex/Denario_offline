@@ -28,45 +28,55 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
             # Try both chat and completion models
             try:
                 from langchain_community.chat_models import ChatOpenAI
-                state['llm']['llm'] = ChatOpenAI(
+                # Force disable streaming for vLLM chat clients since they may not support it well
+                client = ChatOpenAI(
                     openai_api_base=llm_config['api_base'],
                     model_name=model_name,
                     temperature=temp,
                     max_tokens=llm_config.get('max_output_tokens', 4096),
-                    streaming=True
+                    streaming=False  # Force non-streaming for vLLM chat
                 )
-                print("DEBUG: Created vLLM client with ChatOpenAI")
+                # Mark the client type for tools.py to handle appropriately
+                client.is_vllm = True
+                state['llm']['llm'] = client
+                print("DEBUG: Created vLLM client with ChatOpenAI (non-streaming)")
             except ImportError:
-                # Fallback to direct vLLM if chat models not available
+                # Fallback to direct vLLM
                 from langchain_community.llms import VLLMOpenAI
-                state['llm']['llm'] = VLLMOpenAI(
+                client = VLLMOpenAI(
                     openai_api_base=llm_config['api_base'],
                     model_name=model_name,
                     temperature=temp,
                     max_tokens=llm_config.get('max_output_tokens', 4096),
-                    streaming=True
+                    streaming=False  # Force non-streaming for vLLM
                 )
-                print("DEBUG: Created vLLM client with VLLMOpenAI")
+                client.is_vllm = True
+                state['llm']['llm'] = client
+                print("DEBUG: Created vLLM client with VLLMOpenAI (non-streaming)")
 
         elif provider == 'ollama':
             try:
                 from langchain_community.chat_models import ChatOllama
-                state['llm']['llm'] = ChatOllama(
+                client = ChatOllama(
                     base_url=llm_config['api_base'],
                     model=model_name,
                     temperature=temp,
-                    streaming=True
+                    streaming=False  # Force non-streaming for consistent handling
                 )
-                print("DEBUG: Created Ollama client with ChatOllama")
+                client.is_ollama = True
+                state['llm']['llm'] = client
+                print("DEBUG: Created Ollama client with ChatOllama (non-streaming)")
             except ImportError:
                 from langchain_community.llms import Ollama
-                state['llm']['llm'] = Ollama(
+                client = Ollama(
                     base_url=llm_config['api_base'],
                     model=model_name,
                     temperature=temp,
-                    streaming=True
+                    streaming=False  # Force non-streaming for consistent handling
                 )
-                print("DEBUG: Created Ollama client with Ollama")
+                client.is_ollama = True
+                state['llm']['llm'] = client
+                print("DEBUG: Created Ollama client with Ollama (non-streaming)")
 
         elif 'gemini' in model_name:
             state['llm']['llm'] = ChatGoogleGenerativeAI(
