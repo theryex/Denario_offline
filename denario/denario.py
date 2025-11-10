@@ -208,11 +208,26 @@ class Denario:
                       iterations: int = 4,
                       verbose=False,
                       ) -> None:
+        # Ensure we have a data description
+        if not self.research.data_description:
+            try:
+                with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
+                    self.research.data_description = f.read()
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "No data description found. Please set a data description using set_data_description() first."
+                )
+
+        # Setup for graph execution
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
         llm = llm_parser(llm)
         graph = build_lg_graph(mermaid_diagram=False)
+        
+        # Write data description to file (ensure it exists for the graph)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
+        with open(f_data_description, 'w') as f:
+            f.write(self.research.data_description)
 
         # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {

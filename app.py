@@ -98,12 +98,22 @@ with tabs[1]: # Idea
     st.write("Generate a research idea provided the data description.")
     idea_model_display_name = st.selectbox("LLM Model", options=list(all_available_models.keys()), key="idea_model_select")
     idea_model_config = all_available_models[idea_model_display_name]
-    if st.button("Generate", key="generate_idea"):
-        with st.spinner("Generating idea..."):
-            st.session_state.denario.get_idea(llm=idea_model_config)
-            st.success("Idea generated!")
-            st.session_state.idea_text = st.session_state.denario.research.idea
-            st.rerun()
+    generate_clicked = st.button("Generate", key="generate_idea")
+    if generate_clicked:
+        if not st.session_state.denario.research.data_description:
+            st.error("Please set a data description first using the Input prompt tab.")
+        else:
+            with st.spinner("Generating idea..."):
+                try:
+                    st.session_state.denario.get_idea(llm=idea_model_config)
+                    st.success("Idea generated!")
+                    st.session_state.idea_text = st.session_state.denario.research.idea
+                    st.rerun()
+                except FileNotFoundError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
+
     if 'idea_text' in st.session_state:
         st.subheader("Generated idea")
         st.markdown(st.session_state.idea_text)
