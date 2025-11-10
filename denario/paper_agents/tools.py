@@ -66,74 +66,122 @@ def LLM_call_stream(prompt, state):
     """
     output_file_path = state['files']['f_stream']
 
-    # Resolve the runnable client and its provider
+    # Resolve the runnable LLM client from the state. The state['llm'] structure
+    # may be either:
+    # - a dict that contains a runtime client under key 'llm' (expected), or
+    # - already the runtime client object (rare), or
+    # - a higher-level LLM config object (missing runtime client).
     llm_entry = state.get('llm')
     if llm_entry is None:
-        raise KeyError("LLM entry missing from state. Ensure preprocess_node attached an LLM client.")
+        raise KeyError("LLM entry missing from state. Ensure the graph preprocess node ran and attached an LLM client under state['llm']['llm'].")
 
+    # prefer the runtime client if available
+    runner = None
     if isinstance(llm_entry, dict):
         runner = llm_entry.get('llm') or llm_entry
+    else:
+        runner = llm_entry
+
+    # Extract additional config
+    if isinstance(llm_entry, dict):
         stream_verbose = llm_entry.get('stream_verbose', False)
         max_output = llm_entry.get('max_output_tokens')
     else:
-        runner = llm_entry
         stream_verbose = getattr(llm_entry, 'stream_verbose', False)
         max_output = getattr(llm_entry, 'max_output_tokens', None)
 
 
-    # If the runner doesn't support streaming, fall back to a non-streaming call
+    # If the runner doesn't support streaming, attempt fallback methods
     if not hasattr(runner, 'stream'):
-        # Prefer to reuse the synchronous LLM_call if the client exposes .invoke
-        try:
-            return LLM_call(prompt, state)
-        except KeyError:
-            # If LLM_call failed because .invoke is missing, try other common methods
-            if hasattr(runner, 'generate'):
+        # First try using synchronous LLM_call if .invoke is available
+        if hasattr(runner, 'invoke'):
+            try:
+                return LLM_call(prompt, state)
+            except Exception as e:
+                # Log error but continue to other fallbacks
+                print(f"Warning: LLM_call failed ({str(e)}), trying alternative methods")
+
+        # Try .generate if available (common for vLLM/Ollama)
+        if hasattr(runner, 'generate'):
+            try:
                 msg = runner.generate(prompt)
+                # Extract response text from various possible locations
                 text = getattr(msg, 'content', None) or getattr(msg, 'text', None) or str(msg)
+                
+                # Get usage stats if available
                 usage = getattr(msg, 'usage_metadata', {}) or {}
                 input_tokens = usage.get('input_tokens', 0)
                 output_tokens = usage.get('output_tokens', 0)
-                max_output = max_output if 'max_output' in locals() else None
+
+                # Check output length
                 if max_output is not None and output_tokens > max_output:
                     print('WARNING!! Max output tokens reached!')
 
+                # Update token counters
                 state['tokens']['ti'] += input_tokens
                 state['tokens']['to'] += output_tokens
                 state['tokens']['i'] = input_tokens
                 state['tokens']['o'] = output_tokens
+
+                # Log token usage
                 with open(state['files']['LLM_calls'], 'a', encoding='utf-8') as f:
                     f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
+
                 return state, text
-            # No fallback available
-            raise KeyError("No streaming LLM client found at state['llm']['llm'] and no non-streaming fallback methods are available (tried .invoke and .generate).")
+            except Exception as e:
+                print(f"Warning: generate() fallback failed ({str(e)})")
 
-    # Start streaming and writing/printing immediately
+        # No working fallback found
+        raise KeyError("No streaming LLM client found and all fallback methods failed. The client must expose either .stream, .invoke, or .generate methods.")
+
+    # Initialize streaming state
     full_content = ''
-    state['tokens']['i'] = 0
-    state['tokens']['o'] = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    # Start streaming and writing output
     with open(output_file_path, 'a', encoding='utf-8') as f:
-        for chunk in runner.stream(prompt):
-            # chunk may be a plain string or an object with .content
-            text = getattr(chunk, 'content', chunk)
-            f.write(text)
-            f.flush()  # Immediate file write
-            if stream_verbose:
-                print(text, end='', flush=True)  # Immediate terminal output
-            full_content += text
+        try:
+            for chunk in runner.stream(prompt):
+                # Extract text content (may be string or object)
+                text = getattr(chunk, 'content', chunk)
+                if not isinstance(text, str):
+                    text = str(text)
 
-            # After streaming, get token usage if provided
-            usage = getattr(chunk, 'usage_metadata', None) or {}
-            input_tokens = usage.get('input_tokens', 0)
-            output_tokens = usage.get('output_tokens', 0)
-            if max_output is not None and output_tokens > max_output:
-                print('WARNING!! Max output tokens reached!')
+                # Write to file and optionally console
+                f.write(text)
+                f.flush()  # Force immediate write
+                if stream_verbose:
+                    print(text, end='', flush=True)
+                full_content += text
 
-            state['tokens']['ti'] += input_tokens
-            state['tokens']['to'] += output_tokens
-            state['tokens']['i'] += input_tokens
-            state['tokens']['o'] += output_tokens
-        f.write('\n\n')
+                # Track token usage from chunk metadata if available
+                usage = getattr(chunk, 'usage_metadata', {}) or {}
+                input_tokens = usage.get('input_tokens', 0)
+                output_tokens = usage.get('output_tokens', 0)
+                
+                # Accumulate tokens
+                total_input_tokens += input_tokens
+                total_output_tokens += output_tokens
+
+                # Check max tokens if specified
+                if max_output is not None and total_output_tokens > max_output:
+                    print('WARNING!! Max output tokens reached!')
+
+            # Add final newlines
+            f.write('\n\n')
+
+        except Exception as e:
+            print(f"Warning: Streaming error occurred ({str(e)})")
+            raise
+
+    # Update final token counts in state
+    state['tokens']['i'] = total_input_tokens
+    state['tokens']['o'] = total_output_tokens
+    state['tokens']['ti'] += total_input_tokens
+    state['tokens']['to'] += total_output_tokens
+
+    # Log token usage
     with open(state['files']['LLM_calls'], 'a', encoding='utf-8') as f:
         f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
 
