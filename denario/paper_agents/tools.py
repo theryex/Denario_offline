@@ -60,15 +60,16 @@ def LLM_call(prompt, state):
 
 def LLM_call_stream(prompt, state):
     """
-    Calls the LLM with streaming enabled and writes output to file in real-time.
-    Also updates token usage tracking.
+    Handles both streaming and non-streaming LLM calls, writing output to file.
+    For non-streaming clients (like vLLM/Ollama), fetches complete response and writes it at once.
+    For streaming clients, writes chunks as they arrive.
     """
     output_file_path = state['files']['f_stream']
 
-    # Resolve the runnable client (same logic as in LLM_call)
+    # Resolve the runnable client and its provider
     llm_entry = state.get('llm')
     if llm_entry is None:
-        raise KeyError("LLM entry missing from state. Ensure preprocess_node attached an LLM client at state['llm']['llm'].")
+        raise KeyError("LLM entry missing from state. Ensure preprocess_node attached an LLM client.")
 
     if isinstance(llm_entry, dict):
         runner = llm_entry.get('llm') or llm_entry
