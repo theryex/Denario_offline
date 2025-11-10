@@ -21,53 +21,95 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
     model_name = llm_config.get('model', '')
     provider = llm_config.get('provider', '').lower()
     temp = llm_config.get('temperature')
-    print(f"Initializing LLM with provider={provider}, model={model_name}")
+    print(f"DEBUG: Initializing LLM with provider={provider}, model={model_name}, config={llm_config}")
     
     try:
         if provider == 'vllm':
-            from langchain_community.chat_models import ChatOpenAI
-            # Use ChatOpenAI with vLLM backend
-            state['llm']['llm'] = ChatOpenAI(
-                openai_api_base=llm_config['api_base'],
-                model_name=model_name,
-                temperature=temp,
-                max_tokens=llm_config.get('max_output_tokens', 4096)
-            )
-            print("Created vLLM client with ChatOpenAI")
+            # Try both chat and completion models
+            try:
+                from langchain_community.chat_models import ChatOpenAI
+                state['llm']['llm'] = ChatOpenAI(
+                    openai_api_base=llm_config['api_base'],
+                    model_name=model_name,
+                    temperature=temp,
+                    max_tokens=llm_config.get('max_output_tokens', 4096),
+                    streaming=True
+                )
+                print("DEBUG: Created vLLM client with ChatOpenAI")
+            except ImportError:
+                # Fallback to direct vLLM if chat models not available
+                from langchain_community.llms import VLLMOpenAI
+                state['llm']['llm'] = VLLMOpenAI(
+                    openai_api_base=llm_config['api_base'],
+                    model_name=model_name,
+                    temperature=temp,
+                    max_tokens=llm_config.get('max_output_tokens', 4096),
+                    streaming=True
+                )
+                print("DEBUG: Created vLLM client with VLLMOpenAI")
 
         elif provider == 'ollama':
-            from langchain_community.chat_models import ChatOllama
-            state['llm']['llm'] = ChatOllama(
-                base_url=llm_config['api_base'],
-                model=model_name,
-                temperature=temp
-            )
-            print("Created Ollama client with ChatOllama")
+            try:
+                from langchain_community.chat_models import ChatOllama
+                state['llm']['llm'] = ChatOllama(
+                    base_url=llm_config['api_base'],
+                    model=model_name,
+                    temperature=temp,
+                    streaming=True
+                )
+                print("DEBUG: Created Ollama client with ChatOllama")
+            except ImportError:
+                from langchain_community.llms import Ollama
+                state['llm']['llm'] = Ollama(
+                    base_url=llm_config['api_base'],
+                    model=model_name,
+                    temperature=temp,
+                    streaming=True
+                )
+                print("DEBUG: Created Ollama client with Ollama")
 
-        # Default cloud providers
-    elif 'gemini' in model_name:
-        state['llm']['llm'] = ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=temp,
-            google_api_key=state["keys"].GEMINI
-        )
-    elif any(key in model_name for key in ['gpt', 'o3']):
-        state['llm']['llm'] = ChatOpenAI(
-            model=model_name,
-            temperature=temp,
-            openai_api_key=state["keys"].OPENAI
-        )
-    elif 'claude' in model_name or 'anthropic' in model_name:
-        state['llm']['llm'] = ChatAnthropic(
-            model=model_name,
-            temperature=temp,
-            anthropic_api_key=state["keys"].ANTHROPIC
-        )
-    else:
-        raise ValueError(
-            f"Unsupported model provider/name: {provider}/{model_name}. "
-            "Expected one of: vllm, ollama, gemini, gpt, claude"
-        )
+        elif 'gemini' in model_name:
+            state['llm']['llm'] = ChatGoogleGenerativeAI(
+                model=model_name,
+                temperature=temp,
+                google_api_key=state["keys"].GEMINI,
+                streaming=True
+            )
+            print("DEBUG: Created Gemini client")
+
+        elif any(key in model_name for key in ['gpt', 'o3']):
+            state['llm']['llm'] = ChatOpenAI(
+                model=model_name,
+                temperature=temp,
+                openai_api_key=state["keys"].OPENAI,
+                streaming=True
+            )
+            print("DEBUG: Created OpenAI client")
+
+        elif 'claude' in model_name or 'anthropic' in model_name:
+            state['llm']['llm'] = ChatAnthropic(
+                model=model_name,
+                temperature=temp,
+                anthropic_api_key=state["keys"].ANTHROPIC,
+                streaming=True
+            )
+            print("DEBUG: Created Anthropic client")
+
+        else:
+            raise ValueError(
+                f"Unsupported model provider/name: {provider}/{model_name}. "
+                "Expected one of: vllm, ollama, gemini, gpt, claude"
+            )
+
+        # Print debug info about the created client
+        client = state['llm']['llm']
+        print(f"DEBUG: Created LLM client of type: {type(client)}")
+        print(f"DEBUG: Available methods: {[m for m in dir(client) if not m.startswith('_')]}")
+
+    except Exception as e:
+        print(f"ERROR: Failed to create LLM client: {str(e)}")
+        print(f"DEBUG: Full LLM config was: {llm_config}")
+        raise
     #########################################
 
     #########################################
