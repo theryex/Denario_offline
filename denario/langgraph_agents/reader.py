@@ -21,23 +21,30 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
     model_name = llm_config.get('model', '')
     provider = llm_config.get('provider', '').lower()
     temp = llm_config.get('temperature')
+    print(f"Initializing LLM with provider={provider}, model={model_name}")
     
-    if provider == 'vllm':
-        from langchain_community.llms import VLLMOpenAI
-        state['llm']['llm'] = VLLMOpenAI(
-            openai_api_base=llm_config['api_base'],
-            model_name=model_name,
-            temperature=temp,
-            max_tokens=llm_config.get('max_output_tokens', 4096)
-        )
-    elif provider == 'ollama':
-        from langchain_community.llms import Ollama
-        state['llm']['llm'] = Ollama(
-            base_url=llm_config['api_base'],
-            model=model_name,
-            temperature=temp
-        )
-    # Default cloud providers
+    try:
+        if provider == 'vllm':
+            from langchain_community.chat_models import ChatOpenAI
+            # Use ChatOpenAI with vLLM backend
+            state['llm']['llm'] = ChatOpenAI(
+                openai_api_base=llm_config['api_base'],
+                model_name=model_name,
+                temperature=temp,
+                max_tokens=llm_config.get('max_output_tokens', 4096)
+            )
+            print("Created vLLM client with ChatOpenAI")
+
+        elif provider == 'ollama':
+            from langchain_community.chat_models import ChatOllama
+            state['llm']['llm'] = ChatOllama(
+                base_url=llm_config['api_base'],
+                model=model_name,
+                temperature=temp
+            )
+            print("Created Ollama client with ChatOllama")
+
+        # Default cloud providers
     elif 'gemini' in model_name:
         state['llm']['llm'] = ChatGoogleGenerativeAI(
             model=model_name,
