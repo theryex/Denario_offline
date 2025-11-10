@@ -79,8 +79,33 @@ def LLM_call_stream(prompt, state):
         stream_verbose = getattr(llm_entry, 'stream_verbose', False)
         max_output = getattr(llm_entry, 'max_output_tokens', None)
 
+
+    # If the runner doesn't support streaming, fall back to a non-streaming call
     if not hasattr(runner, 'stream'):
-        raise KeyError("No streaming LLM client found at state['llm']['llm'] (object has no .stream).")
+        # Prefer to reuse the synchronous LLM_call if the client exposes .invoke
+        try:
+            return LLM_call(prompt, state)
+        except KeyError:
+            # If LLM_call failed because .invoke is missing, try other common methods
+            if hasattr(runner, 'generate'):
+                msg = runner.generate(prompt)
+                text = getattr(msg, 'content', None) or getattr(msg, 'text', None) or str(msg)
+                usage = getattr(msg, 'usage_metadata', {}) or {}
+                input_tokens = usage.get('input_tokens', 0)
+                output_tokens = usage.get('output_tokens', 0)
+                max_output = max_output if 'max_output' in locals() else None
+                if max_output is not None and output_tokens > max_output:
+                    print('WARNING!! Max output tokens reached!')
+
+                state['tokens']['ti'] += input_tokens
+                state['tokens']['to'] += output_tokens
+                state['tokens']['i'] = input_tokens
+                state['tokens']['o'] = output_tokens
+                with open(state['files']['LLM_calls'], 'a', encoding='utf-8') as f:
+                    f.write(f"{state['tokens']['i']} {state['tokens']['o']} {state['tokens']['ti']} {state['tokens']['to']}\n")
+                return state, text
+            # No fallback available
+            raise KeyError("No streaming LLM client found at state['llm']['llm'] and no non-streaming fallback methods are available (tried .invoke and .generate).")
 
     # Start streaming and writing/printing immediately
     full_content = ''
