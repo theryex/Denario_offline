@@ -24,58 +24,52 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
     print(f"DEBUG: Initializing LLM with provider={provider}, model={model_name}, config={llm_config}")
     
     try:
+        # Determine if streaming should be enabled based on provider
+        enable_streaming = provider not in ['vllm', 'ollama']
+        print(f"DEBUG: Streaming is {'enabled' if enable_streaming else 'disabled'} for provider {provider}")
+
         if provider == 'vllm':
             # Try both chat and completion models
             try:
                 from langchain_community.chat_models import ChatOpenAI
-                # Force disable streaming for vLLM chat clients since they may not support it well
-                client = ChatOpenAI(
+                state['llm']['llm'] = ChatOpenAI(
                     openai_api_base=llm_config['api_base'],
                     model_name=model_name,
                     temperature=temp,
                     max_tokens=llm_config.get('max_output_tokens', 4096),
-                    streaming=False  # Force non-streaming for vLLM chat
+                    streaming=False  # Always disable streaming for vLLM
                 )
-                # Mark the client type for tools.py to handle appropriately
-                client.is_vllm = True
-                state['llm']['llm'] = client
                 print("DEBUG: Created vLLM client with ChatOpenAI (non-streaming)")
             except ImportError:
                 # Fallback to direct vLLM
                 from langchain_community.llms import VLLMOpenAI
-                client = VLLMOpenAI(
+                state['llm']['llm'] = VLLMOpenAI(
                     openai_api_base=llm_config['api_base'],
                     model_name=model_name,
                     temperature=temp,
                     max_tokens=llm_config.get('max_output_tokens', 4096),
-                    streaming=False  # Force non-streaming for vLLM
+                    streaming=False  # Always disable streaming for vLLM
                 )
-                client.is_vllm = True
-                state['llm']['llm'] = client
                 print("DEBUG: Created vLLM client with VLLMOpenAI (non-streaming)")
 
         elif provider == 'ollama':
             try:
                 from langchain_community.chat_models import ChatOllama
-                client = ChatOllama(
+                state['llm']['llm'] = ChatOllama(
                     base_url=llm_config['api_base'],
                     model=model_name,
                     temperature=temp,
-                    streaming=False  # Force non-streaming for consistent handling
+                    streaming=False  # Always disable streaming for Ollama
                 )
-                client.is_ollama = True
-                state['llm']['llm'] = client
                 print("DEBUG: Created Ollama client with ChatOllama (non-streaming)")
             except ImportError:
                 from langchain_community.llms import Ollama
-                client = Ollama(
+                state['llm']['llm'] = Ollama(
                     base_url=llm_config['api_base'],
                     model=model_name,
                     temperature=temp,
-                    streaming=False  # Force non-streaming for consistent handling
+                    streaming=False  # Always disable streaming for Ollama
                 )
-                client.is_ollama = True
-                state['llm']['llm'] = client
                 print("DEBUG: Created Ollama client with Ollama (non-streaming)")
 
         elif 'gemini' in model_name:
@@ -83,27 +77,27 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
                 model=model_name,
                 temperature=temp,
                 google_api_key=state["keys"].GEMINI,
-                streaming=True
+                streaming=enable_streaming
             )
-            print("DEBUG: Created Gemini client")
+            print(f"DEBUG: Created Gemini client (streaming={enable_streaming})")
 
         elif any(key in model_name for key in ['gpt', 'o3']):
             state['llm']['llm'] = ChatOpenAI(
                 model=model_name,
                 temperature=temp,
                 openai_api_key=state["keys"].OPENAI,
-                streaming=True
+                streaming=enable_streaming
             )
-            print("DEBUG: Created OpenAI client")
+            print(f"DEBUG: Created OpenAI client (streaming={enable_streaming})")
 
         elif 'claude' in model_name or 'anthropic' in model_name:
             state['llm']['llm'] = ChatAnthropic(
                 model=model_name,
                 temperature=temp,
                 anthropic_api_key=state["keys"].ANTHROPIC,
-                streaming=True
+                streaming=enable_streaming
             )
-            print("DEBUG: Created Anthropic client")
+            print(f"DEBUG: Created Anthropic client (streaming={enable_streaming})")
 
         else:
             raise ValueError(
