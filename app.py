@@ -123,12 +123,25 @@ with tabs[2]: # Methods
     st.write("Generate the methods to be employed in the computation of the results.")
     method_model_display_name = st.selectbox("LLM Model", options=list(all_available_models.keys()), key="method_model_select")
     method_model_config = all_available_models[method_model_display_name]
-    if st.button("Generate", key="generate_method"):
-        with st.spinner("Generating methods..."):
-            st.session_state.denario.get_method(llm=method_model_config)
-            st.success("Methods generated!")
-            st.session_state.method_text = st.session_state.denario.research.methodology
-            st.rerun()
+    generate_clicked = st.button("Generate", key="generate_method")
+    if generate_clicked:
+        if not st.session_state.denario.research.data_description:
+            st.error("Please set a data description first using the Input prompt tab.")
+        elif not st.session_state.denario.research.idea:
+            st.error("Please generate a research idea first using the Idea tab.")
+        else:
+            with st.spinner("Generating methods..."):
+                try:
+                    st.session_state.denario.get_method(llm=method_model_config)
+                    st.success("Methods generated!")
+                    st.session_state.method_text = st.session_state.denario.research.methodology
+                    st.rerun()
+                except FileNotFoundError as e:
+                    st.error(str(e))
+                except ValueError as e:
+                    st.error(f"Invalid model configuration: {str(e)}")
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
     if 'method_text' in st.session_state:
         st.subheader("Generated methods")
         st.markdown(st.session_state.method_text)

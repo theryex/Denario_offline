@@ -16,21 +16,51 @@ def preprocess_node(state: GraphState, config: RunnableConfig):
     state['tokens'] = {'ti': 0, 'to': 0, 'i': 0, 'o': 0}
 
     #########################################
-    # set the LLM
-    if 'gemini' in state['llm']['model']:
-        state['llm']['llm'] = ChatGoogleGenerativeAI(model=state['llm']['model'],
-                                                temperature=state['llm']['temperature'],
-                                                google_api_key=state["keys"].GEMINI)
-
-    elif any(key in state['llm']['model'] for key in ['gpt', 'o3']):
-        state['llm']['llm'] = ChatOpenAI(model=state['llm']['model'],
-                                         temperature=state['llm']['temperature'],
-                                         openai_api_key=state["keys"].OPENAI)
-                    
-    elif 'claude' in state['llm']['model']  or 'anthropic' in state['llm']['model'] :
-        state['llm']['llm'] = ChatAnthropic(model=state['llm']['model'],
-                                            temperature=state['llm']['temperature'],
-                                            anthropic_api_key=state["keys"].ANTHROPIC)
+    # set the LLM based on provider or model name
+    llm_config = state['llm']
+    model_name = llm_config.get('model', '')
+    provider = llm_config.get('provider', '').lower()
+    temp = llm_config.get('temperature')
+    
+    if provider == 'vllm':
+        from langchain_community.llms import VLLMOpenAI
+        state['llm']['llm'] = VLLMOpenAI(
+            openai_api_base=llm_config['api_base'],
+            model_name=model_name,
+            temperature=temp,
+            max_tokens=llm_config.get('max_output_tokens', 4096)
+        )
+    elif provider == 'ollama':
+        from langchain_community.llms import Ollama
+        state['llm']['llm'] = Ollama(
+            base_url=llm_config['api_base'],
+            model=model_name,
+            temperature=temp
+        )
+    # Default cloud providers
+    elif 'gemini' in model_name:
+        state['llm']['llm'] = ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=temp,
+            google_api_key=state["keys"].GEMINI
+        )
+    elif any(key in model_name for key in ['gpt', 'o3']):
+        state['llm']['llm'] = ChatOpenAI(
+            model=model_name,
+            temperature=temp,
+            openai_api_key=state["keys"].OPENAI
+        )
+    elif 'claude' in model_name or 'anthropic' in model_name:
+        state['llm']['llm'] = ChatAnthropic(
+            model=model_name,
+            temperature=temp,
+            anthropic_api_key=state["keys"].ANTHROPIC
+        )
+    else:
+        raise ValueError(
+            f"Unsupported model provider/name: {provider}/{model_name}. "
+            "Expected one of: vllm, ollama, gemini, gpt, claude"
+        )
     #########################################
 
     #########################################

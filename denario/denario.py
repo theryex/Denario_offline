@@ -358,13 +358,40 @@ class Denario:
                         llm: LLM | str | Dict = "gemini-2.0-flash",
                         verbose=False,
                         ) -> None:
+        # Ensure we have required inputs
+        if not self.research.data_description:
+            try:
+                with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
+                    self.research.data_description = f.read()
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "No data description found. Please set a data description using set_data_description() first."
+                )
+
+        if not self.research.idea:
+            try:
+                with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'r') as f:
+                    self.research.idea = f.read()
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "No research idea found. Please generate an idea first using get_idea()."
+                )
+
+        # Setup for graph execution
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
         llm = llm_parser(llm)
         graph = build_lg_graph(mermaid_diagram=False)
+        
+        # Write required files (ensure they exist for the graph)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
         
+        with open(f_data_description, 'w') as f:
+            f.write(self.research.data_description)
+        with open(f_idea, 'w') as f:
+            f.write(self.research.idea)
+            
         # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {
             "task": "methods_generation",
