@@ -248,7 +248,6 @@ class Denario:
                 )
 
         start_time = time.time()
-        config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
 
         llm_client = self._create_llm_client(llm)
         llm_config = llm_parser(llm)
@@ -259,23 +258,55 @@ class Denario:
         with open(f_data_description, 'w') as f:
             f.write(self.research.data_description)
 
-        input_state = {
-            "task": "idea_generation",
-            "files": {"Folder": self.project_dir, "data_description": f_data_description},
-            "llm": {
-                "llm": llm_client,
-                "model": llm_config.name,
-                "temperature": llm_config.temperature,
-                "max_output_tokens": llm_config.max_output_tokens,
-                "stream_verbose": verbose
-            },
-            "keys": self.keys,
-            "idea": {"total_iterations": iterations},
-        }
-        graph.invoke(input_state, config)
+        # --- New Iteration and Error Handling Logic ---
+        final_idea = ""
+        has_error = False
+
+        # Manually iterate to control the loop and handle errors
+        for i in range(iterations):
+            config = {"configurable": {"thread_id": f"thread-{i}"}, "recursion_limit": 100}
+
+            # This input state is now for a single run of the maker/hater loop
+            input_state = {
+                "task": "idea_generation",
+                "files": {"Folder": self.project_dir, "data_description": f_data_description},
+                "llm": {
+                    "llm": llm_client,
+                    "model": llm_config.name,
+                    "temperature": llm_config.temperature,
+                    "max_output_tokens": llm_config.max_output_tokens,
+                    "stream_verbose": verbose
+                },
+                "keys": self.keys,
+                # Force the graph to only run one maker/hater cycle
+                "idea": {"total_iterations": 1, "iteration": 0, "previous_ideas": final_idea or ""},
+            }
+
+            # Invoke the graph for one cycle
+            final_state = graph.invoke(input_state, config)
+
+            # Check for the parse failure error marker
+            current_idea = final_state.get('idea', {}).get('idea', '')
+            if current_idea == "ERROR::MODEL_OUTPUT_PARSE_FAILURE":
+                has_error = True
+                break # Exit the loop immediately on failure
+
+            final_idea = current_idea
+
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"Idea generated in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
+        print(f"Idea generation process completed in {int(elapsed_time // 60)} min {int(elapsed_time % 60)} sec.")
+
+        # Set the final result based on whether an error occurred
+        if has_error:
+            self.research.idea = "The selected model failed to generate a valid research idea in the required format. Please try a different, more capable model."
+        else:
+            self.research.idea = final_idea
+
+        # Write the final result to the idea file
+        with open(os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE), 'w') as f:
+            f.write(self.research.idea)
+
 
     def check_idea(self,
                    mode: str = 'semantic_scholar',

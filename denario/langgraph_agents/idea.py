@@ -11,10 +11,14 @@ def idea_maker(state: GraphState, config: RunnableConfig):
     
     PROMPT = idea_maker_prompt(state)
     state, result = LLM_call_stream(PROMPT, state)
-    text = extract_latex_block(state, result, "IDEA")
 
-    # remove LLM added lines
-    text = clean_section(text, "IDEA")
+    try:
+        text = extract_latex_block(state, result, "IDEA")
+        text = clean_section(text, "IDEA")
+    except ValueError:
+        # Instead of complex state, just return a specific error marker
+        text = "ERROR::MODEL_OUTPUT_PARSE_FAILURE"
+
 
     #with open(state['files']['idea_log'], 'a') as f:
     #    f.write(f"""Iteration {state['idea']['iteration']}:
