@@ -12,6 +12,8 @@ import cmbagent
 # --- Corrected Imports ---
 # Ensure these imports are correct for your project structure
 from .llm import LLM, models, llm_parser 
+from langchain_community.chat_models import ChatOllama
+from langchain_openai import ChatOpenAI
 from .config import DEFAUL_PROJECT_NAME, INPUT_FILES, PLOTS_FOLDER, DESCRIPTION_FILE, IDEA_FILE, METHOD_FILE, RESULTS_FILE, LITERATURE_FILE
 from .research import Research
 from .key_manager import KeyManager
@@ -68,6 +70,34 @@ class Denario:
         self.keys.get_keys_from_env()
         self.run_in_notebook = in_notebook()
         self.set_all()
+
+    def _create_llm_client(self, llm: LLM | str | Dict) -> Union[ChatOpenAI, ChatOllama]:
+        """Creates a LangChain client from a model configuration."""
+        llm_config = llm_parser(llm)
+
+        if llm_config.provider == "vLLM":
+            return ChatOpenAI(
+                openai_api_base=f"{llm_config.api_base}/v1",
+                openai_api_key="dummy-key",
+                model_name=llm_config.name,
+                temperature=llm_config.temperature,
+                max_tokens=llm_config.max_output_tokens,
+                model_kwargs={"frequency_penalty": llm_config.repetition_penalty}
+            )
+        elif llm_config.provider == "Ollama":
+            return ChatOllama(
+                base_url=llm_config.api_base,
+                model=llm_config.name,
+                temperature=llm_config.temperature,
+                repeat_penalty=llm_config.repetition_penalty
+            )
+        else:
+            # Default to ChatOpenAI for cloud models
+            return ChatOpenAI(
+                model=llm_config.name,
+                temperature=llm_config.temperature,
+                max_tokens=llm_config.max_output_tokens
+            )
 
     def _setup_input_files(self) -> None:
         input_files_dir = os.path.join(self.project_dir, INPUT_FILES)
@@ -208,7 +238,6 @@ class Denario:
                       iterations: int = 4,
                       verbose=False,
                       ) -> None:
-        # Ensure we have a data description
         if not self.research.data_description:
             try:
                 with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -218,26 +247,26 @@ class Denario:
                     "No data description found. Please set a data description using set_data_description() first."
                 )
 
-        # Setup for graph execution
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
-        llm = llm_parser(llm)
+
+        llm_client = self._create_llm_client(llm)
+        llm_config = llm_parser(llm)
+
         graph = build_lg_graph(mermaid_diagram=False)
         
-        # Write data description to file (ensure it exists for the graph)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         with open(f_data_description, 'w') as f:
             f.write(self.research.data_description)
 
-        # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {
             "task": "idea_generation",
             "files": {"Folder": self.project_dir, "data_description": f_data_description},
             "llm": {
-                "llm": llm,  # <<< Pass the entire LLM object here
-                "model": llm.name,
-                "temperature": llm.temperature,
-                "max_output_tokens": llm.max_output_tokens,
+                "llm": llm_client,
+                "model": llm_config.name,
+                "temperature": llm_config.temperature,
+                "max_output_tokens": llm_config.max_output_tokens,
                 "stream_verbose": verbose
             },
             "keys": self.keys,
@@ -268,20 +297,22 @@ class Denario:
                         ) -> str:
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
-        llm = llm_parser(llm)
+
+        llm_client = self._create_llm_client(llm)
+        llm_config = llm_parser(llm)
+
         graph = build_lg_graph(mermaid_diagram=False)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
 
-        # <<< FIX: Ensure 'llm' key holds the LLM object.
         input_state = {
             "task": "literature",
             "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
             "llm": {
-                "llm": llm,  # <<< Pass the entire LLM object here
-                "model": llm.name,
-                "temperature": llm.temperature,
-                "max_output_tokens": llm.max_output_tokens,
+                "llm": llm_client,
+                "model": llm_config.name,
+                "temperature": llm_config.temperature,
+                "max_output_tokens": llm_config.max_output_tokens,
                 "stream_verbose": verbose
             },
             "keys": self.keys,
@@ -358,7 +389,6 @@ class Denario:
                         llm: LLM | str | Dict = "gemini-2.0-flash",
                         verbose=False,
                         ) -> None:
-        # Ensure we have required inputs
         if not self.research.data_description:
             try:
                 with open(os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE), 'r') as f:
@@ -377,13 +407,14 @@ class Denario:
                     "No research idea found. Please generate an idea first using get_idea()."
                 )
 
-        # Setup for graph execution
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
-        llm = llm_parser(llm)
+
+        llm_client = self._create_llm_client(llm)
+        llm_config = llm_parser(llm)
+
         graph = build_lg_graph(mermaid_diagram=False)
         
-        # Write required files (ensure they exist for the graph)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
         f_idea = os.path.join(self.project_dir, INPUT_FILES, IDEA_FILE)
         
@@ -392,15 +423,14 @@ class Denario:
         with open(f_idea, 'w') as f:
             f.write(self.research.idea)
             
-        # <<< FIX: Ensure 'llm' key holds the LLM object, not just its attributes.
         input_state = {
             "task": "methods_generation",
             "files": {"Folder": self.project_dir, "data_description": f_data_description, "idea": f_idea},
             "llm": {
-                "llm": llm,  # <<< Pass the entire LLM object here
-                "model": llm.name,
-                "temperature": llm.temperature,
-                "max_output_tokens": llm.max_output_tokens,
+                "llm": llm_client,
+                "model": llm_config.name,
+                "temperature": llm_config.temperature,
+                "max_output_tokens": llm_config.max_output_tokens,
                 "stream_verbose": verbose
             },
             "keys": self.keys,
@@ -477,16 +507,19 @@ class Denario:
                   ) -> None:
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
-        llm = llm_parser(llm)
+
+        llm_client = self._create_llm_client(llm)
+        llm_config = llm_parser(llm)
+
         graph = build_graph(mermaid_diagram=False)
 
         input_state = {
             "files":{"Folder": self.project_dir},
             "llm": {
-                "llm": llm,  # <<< FIX: Pass the entire LLM object here
-                "model": llm.name,
-                "temperature": llm.temperature,
-                "max_output_tokens": llm.max_output_tokens
+                "llm": llm_client,
+                "model": llm_config.name,
+                "temperature": llm_config.temperature,
+                "max_output_tokens": llm_config.max_output_tokens
             },
             "paper":{"journal": journal, "add_citations": add_citations, "cmbagent_keywords": cmbagent_keywords},
             "keys": self.keys,
@@ -502,19 +535,21 @@ class Denario:
                 verbose=False) -> None:
         start_time = time.time()
         config = {"configurable": {"thread_id": "1"}, "recursion_limit": 100}
-        llm = llm_parser(llm)
+
+        llm_client = self._create_llm_client(llm)
+        llm_config = llm_parser(llm)
+
         graph = build_lg_graph(mermaid_diagram=False)
         f_data_description = os.path.join(self.project_dir, INPUT_FILES, DESCRIPTION_FILE)
 
-        # <<< FIX: Ensure 'llm' key holds the LLM object.
         input_state = {
             "task": "referee",
             "files": {"Folder": self.project_dir, "data_description": f_data_description},
             "llm": {
-                "llm": llm,  # <<< Pass the entire LLM object here
-                "model": llm.name,
-                "temperature": llm.temperature,
-                "max_output_tokens": llm.max_output_tokens,
+                "llm": llm_client,
+                "model": llm_config.name,
+                "temperature": llm_config.temperature,
+                "max_output_tokens": llm_config.max_output_tokens,
                 "stream_verbose": verbose
             },
             "keys": self.keys,
