@@ -322,15 +322,19 @@ def extract_latex_block(state: GraphState, text: str, block: str) -> str:
     if match:
         return match.group(1).strip()
     
-    # in case it fails
-    with open(state['files']['Error'], 'w', encoding='utf-8') as f:
-        f.write(text)
+    # in case it fails, retry logic
+    for attempt in range(2): # Try up to 2 times
+        with open(state['files']['Error'], 'w', encoding='utf-8') as f:
+            f.write(text)
 
-    # try to fix it using fixed
-    try:
-        return fixer(state, block)
-    except ValueError:
-        raise ValueError(f"Failed to extract {block}")
+        # try to fix it using fixer
+        try:
+            print(f"Extraction failed. Attempting fix #{attempt + 1}...")
+            return fixer(state, block)
+        except ValueError:
+            print(f"Fix attempt #{attempt + 1} failed.")
+            if attempt == 1: # Last attempt failed
+                raise ValueError(f"Failed to extract {block} after multiple attempts.")
 
     
 
@@ -356,7 +360,7 @@ def fixer(state: GraphState, section_name):
         with open(state['files']['Error'], 'w', encoding='utf-8') as f:
             f.write(result)
         print("Fixer failed to extract block")
-        sys.exit()
+        raise ValueError("Fixer failed to extract block after retry.")
 
 
 
